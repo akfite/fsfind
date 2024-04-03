@@ -70,6 +70,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %   See also: regexp, compile_mex_listfiles
 
 %   Author:     Austin Fite
+%   Contact:    akfite@gmail.com
 %   Date:       2024
 
     arguments
