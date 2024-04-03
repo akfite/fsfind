@@ -28,13 +28,6 @@ inline std::list<fs::path> get_contents(std::string folder)
 
 inline uint8_t uint8_filetype(const fs::path& p)
 {
-    // for some mysterious reason, calling fs::is_symlink on a
-    // file_status is returning a different result than calling the
-    // same function on the same path... the cost seems to be
-    // relatively low
-    if (fs::is_symlink(p))
-        return 4;
-
     auto status = fs::status(p);
 
     switch (status.type())

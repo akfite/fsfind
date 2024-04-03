@@ -154,7 +154,7 @@ function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts
             i_search = i_search + 1; continue
         end
         
-        % get all files & directories in the current folder
+        % get all of the contents of this folder (files, dirs, links, etc)
         [filepaths, filenames, type] = mex_listfiles(folder, opts.Canonical);
 
         file_depth = repmat(depth, numel(filenames), 1);
