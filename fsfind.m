@@ -36,6 +36,8 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %           - returns canonical, absolute paths
 %           - i.e. an absolute path that has no dot, dot-dot elements or  
 %             symbolic links in its generic format representation
+%           - fsfind will error when it encounters a bad symlink while
+%             this option is enabled
 %
 %   Outputs:
 %

@@ -26,9 +26,18 @@ inline std::list<fs::path> get_contents(std::string folder)
     return files;
 }
 
-inline uint8_t filetype_to_uint8(fs::file_type type)
+inline uint8_t uint8_filetype(const fs::path& p)
 {
-    switch (type)
+    // for some mysterious reason, calling fs::is_symlink on a
+    // file_status is returning a different result than calling the
+    // same function on the same path... the cost seems to be
+    // relatively low
+    if (fs::is_symlink(p))
+        return 4;
+
+    auto status = fs::status(p);
+
+    switch (status.type())
     {
         case fs::file_type::regular:
             return 2;
@@ -105,8 +114,7 @@ void mexFunction(int nargout, mxArray *outputs[], int nargin, const mxArray *inp
         mxSetCell(out_filepaths, i, mxCreateString(fullpath.c_str()));
         mxSetCell(out_filenames, i, mxCreateString(p.filename().c_str()));
        
-        fs::file_status s = fs::status(p);
-        p_out_type[i] = filetype_to_uint8(s.type());
+        p_out_type[i] = uint8_filetype(p);
 
         i++;
     }
