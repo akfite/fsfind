@@ -13,42 +13,42 @@
 #include "mex.h"
 #include "matrix.h"
 
-using namespace std::filesystem;
+namespace fs = std::filesystem;
 
 // lightweight replacement for MATLAB's "dir"
-inline std::list<path> get_contents(std::string folder)
+inline std::list<fs::path> get_contents(std::string folder)
 {
-    std::list<path> files;
-    for (const auto& entry : directory_iterator(folder))
+    std::list<fs::path> files;
+    for (const auto& entry : fs::directory_iterator(folder))
     {
         files.emplace_back(entry.path());
     }
     return files;
 }
 
-inline uint8_t filetype_to_uint8(file_type type)
+inline uint8_t filetype_to_uint8(fs::file_type type)
 {
     switch (type)
     {
-        case file_type::none:
+        case fs::file_type::none:
             return 0;
-        case file_type::not_found:
+        case fs::file_type::not_found:
             return 1;
-        case file_type::regular:
+        case fs::file_type::regular:
             return 2;
-        case file_type::directory:
+        case fs::file_type::directory:
             return 3;
-        case file_type::symlink:
+        case fs::file_type::symlink:
             return 4;
-        case file_type::block:
+        case fs::file_type::block:
             return 5;
-        case file_type::character:
+        case fs::file_type::character:
             return 6;
-        case file_type::fifo:
+        case fs::file_type::fifo:
             return 7;
-        case file_type::socket:
+        case fs::file_type::socket:
             return 8;
-        case file_type::unknown:
+        case fs::file_type::unknown:
             return 9;
         default:
             return 9;
@@ -79,7 +79,7 @@ void mexFunction(int nargout, mxArray *outputs[], int nargin, const mxArray *inp
     const bool make_canonical = *mxGetLogicals(inputs[1]);
     
     // list everything in current folder
-    const std::list<path> paths = get_contents(folder);
+    const std::list<fs::path> paths = get_contents(folder);
 
     // place filepaths & names into a cell array for output
     size_t N = paths.size();
@@ -94,16 +94,16 @@ void mexFunction(int nargout, mxArray *outputs[], int nargin, const mxArray *inp
     mwIndex i = 0;
 
     // copy to outputs
-    for (path p : paths)
+    for (fs::path p : paths)
     {
         if (make_canonical)
-            p = std::filesystem::canonical(p);
+            p = fs::canonical(p);
 
         const std::string fullpath = p;
         mxSetCell(out_filepaths, i, mxCreateString(fullpath.c_str()));
         mxSetCell(out_filenames, i, mxCreateString(p.filename().c_str()));
        
-        file_status s = status(p);
+        fs::file_status s = fs::status(p);
         p_out_type[i] = filetype_to_uint8(s.type());
 
         i++;
