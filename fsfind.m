@@ -1,4 +1,4 @@
-function [files, filenames] = fsfind(parent_dir, pattern, opts)
+function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %FSFIND Fast recursive filesystem search with regular expression support.
 %
 %   Usage:
@@ -7,7 +7,7 @@ function [files, filenames] = fsfind(parent_dir, pattern, opts)
 %       FILES = FSFIND(PARENT_DIR)
 %       FILES = FSFIND(PARENT_DIR, PATTERN)
 %       FILES = FSFIND(PARENT_DIR, PATTERN, options...)
-%       [FILES, FILENAMES] = FSFIND(_____)
+%       [FILES, FILENAMES, TYPES] = FSFIND(_____)
 %
 %
 %   Inputs:
@@ -36,6 +36,20 @@ function [files, filenames] = fsfind(parent_dir, pattern, opts)
 %           - returns canonical, absolute paths
 %           - i.e. an absolute path that has no dot, dot-dot elements or  
 %             symbolic links in its generic format representation
+%
+%   Outputs:
+%
+%       FILES <Nx1 string>
+%           - the full filepaths that were matched
+%
+%       FILENAMES <Nx1 string>
+%           - the names of the files that were matched
+%           - equivalent to [~, FILENAMES] = fileparts(FILES) but provided
+%             here for convenience and speed
+%
+%       TYPES <Nx1 fstype>
+%           - the type of each file returned
+%           - this is an enumeration based on std::filesystem::file_type
 %
 %   Notes:
 %
@@ -78,6 +92,7 @@ function [files, filenames] = fsfind(parent_dir, pattern, opts)
 
     files = string.empty;
     filenames = string.empty;
+    types = fstype.empty;
 
     for i = 1:numel(parent_dir)
         if ~exist(parent_dir{i},'dir')
@@ -85,15 +100,21 @@ function [files, filenames] = fsfind(parent_dir, pattern, opts)
             continue
         end
 
-        [fp, fn] = search(parent_dir{i}, pattern, opts);
+        [fp, fn, type] = search(parent_dir{i}, pattern, opts);
 
         files = vertcat(files, fp); %#ok<*AGROW>
-        filenames = vertcat(filenames, fn);
+
+        if nargout > 1
+            filenames = vertcat(filenames, fn);
+        end
+        if nargout > 2
+            types = vertcat(types, fstype(type));
+        end
     end
 
 end
 
-function [all_filepaths, all_filenames] = search(folder, pattern, opts)
+function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts)
 
     separator = string(filesep);
 
@@ -105,7 +126,10 @@ function [all_filepaths, all_filenames] = search(folder, pattern, opts)
     all_filenames = string.empty;
     all_filepaths = string.empty;
     all_depths = [];
-    all_is_dir = logical.empty;
+    all_type = uint8.empty;
+
+    % work with integers for speed (it makes a significant difference here)
+    dir_type = uint8(fstype.directory);
 
     i_search = 0;
     depth = 1;
@@ -114,7 +138,7 @@ function [all_filepaths, all_filenames] = search(folder, pattern, opts)
     while i_search <= numel(all_filepaths)
         if i_search > 0
             folder = all_filepaths{i_search};
-            is_dir = all_is_dir(i_search);
+            is_dir = all_type(i_search) == dir_type;
             depth = all_depths(i_search) + 1;
         else
             is_dir = true;
@@ -129,7 +153,8 @@ function [all_filepaths, all_filenames] = search(folder, pattern, opts)
         end
         
         % get all files & directories in the current folder
-        [filepaths, filenames, is_dir] = mex_listfiles(folder, opts.Canonical);
+        [filepaths, filenames, type] = mex_listfiles(folder, opts.Canonical);
+
         file_depth = repmat(depth, numel(filenames), 1);
 
         if isempty(filenames)
@@ -144,14 +169,14 @@ function [all_filepaths, all_filenames] = search(folder, pattern, opts)
             filenames = filenames(mask);
             filepaths = filepaths(mask);
             file_depth = file_depth(mask);
-            is_dir = is_dir(mask);
+            type = type(mask);
         end
 
         % accumulate results
         all_filepaths = vertcat(all_filepaths, filepaths);
         all_filenames = vertcat(all_filenames, filenames);
         all_depths = vertcat(all_depths, file_depth);
-        all_is_dir = vertcat(all_is_dir, is_dir);
+        all_type = vertcat(all_type, type);
  
         i_search = i_search + 1;
     end
@@ -169,6 +194,7 @@ function [all_filepaths, all_filenames] = search(folder, pattern, opts)
 
         all_filepaths = all_filepaths(mask);
         all_filenames = all_filenames(mask);
+        all_type = all_type(mask);
     end
 
     % apply the pattern to filter results by filename
@@ -178,6 +204,7 @@ function [all_filepaths, all_filenames] = search(folder, pattern, opts)
 
         all_filepaths = all_filepaths(mask);
         all_filenames = all_filenames(mask);
+        all_type = all_type(mask);
     end
 
 end

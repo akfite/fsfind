@@ -4,6 +4,7 @@
 //   Contact:    akfite@gmail.com
 //   Date:       2024
 
+#include <cstdint>
 #include <filesystem>
 #include <list>
 #include <string>
@@ -23,6 +24,35 @@ inline std::list<path> get_contents(std::string folder)
         files.emplace_back(entry.path());
     }
     return files;
+}
+
+inline uint8_t filetype_to_uint8(file_type type)
+{
+    switch (type)
+    {
+        case file_type::none:
+            return 0;
+        case file_type::not_found:
+            return 1;
+        case file_type::regular:
+            return 2;
+        case file_type::directory:
+            return 3;
+        case file_type::symlink:
+            return 4;
+        case file_type::block:
+            return 5;
+        case file_type::character:
+            return 6;
+        case file_type::fifo:
+            return 7;
+        case file_type::socket:
+            return 8;
+        case file_type::unknown:
+            return 9;
+        default:
+            return 9;
+    }
 }
 
 // MATLAB gateway 
@@ -52,13 +82,15 @@ void mexFunction(int nargout, mxArray *outputs[], int nargin, const mxArray *inp
     const std::list<path> paths = get_contents(folder);
 
     // place filepaths & names into a cell array for output
-    const mwSize N = paths.size();
+    size_t N = paths.size();
     mxArray* out_filepaths = mxCreateCellMatrix(N, 1);
     mxArray* out_filenames = mxCreateCellMatrix(N, 1);
-    // output flag for directories
-    mxArray* out_isdir = mxCreateLogicalMatrix(N, 1);
-    mxLogical* p_out_isdir = mxGetLogicals(out_isdir);
+    // outut file type array
+    mwSize dims[2] = {N, 1};
+    mxArray* out_type = mxCreateNumericArray(2, dims, mxUINT8_CLASS, mxREAL);
+    uint8_t* p_out_type = mxGetUint8s(out_type);
 
+    // keep track of numeric index as we range-based loop over paths
     mwIndex i = 0;
 
     // copy to outputs
@@ -70,11 +102,14 @@ void mexFunction(int nargout, mxArray *outputs[], int nargin, const mxArray *inp
         const std::string fullpath = p;
         mxSetCell(out_filepaths, i, mxCreateString(fullpath.c_str()));
         mxSetCell(out_filenames, i, mxCreateString(p.filename().c_str()));
-        p_out_isdir[i] = is_directory(p);
+       
+        file_status s = status(p);
+        p_out_type[i] = filetype_to_uint8(s.type());
+
         i++;
     }
 
     outputs[0] = out_filepaths;
     outputs[1] = out_filenames;
-    outputs[2] = out_isdir;
+    outputs[2] = out_type;
 }
