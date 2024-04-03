@@ -30,10 +30,6 @@ inline uint8_t filetype_to_uint8(fs::file_type type)
 {
     switch (type)
     {
-        case fs::file_type::none:
-            return 0;
-        case fs::file_type::not_found:
-            return 1;
         case fs::file_type::regular:
             return 2;
         case fs::file_type::directory:
@@ -50,6 +46,10 @@ inline uint8_t filetype_to_uint8(fs::file_type type)
             return 8;
         case fs::file_type::unknown:
             return 9;
+        case fs::file_type::none:
+            return 0;
+        case fs::file_type::not_found:
+            return 1;
         default:
             return 9;
     }
@@ -97,7 +97,9 @@ void mexFunction(int nargout, mxArray *outputs[], int nargin, const mxArray *inp
     for (fs::path p : paths)
     {
         if (make_canonical)
+        {
             p = fs::canonical(p);
+        }
 
         const std::string fullpath = p;
         mxSetCell(out_filepaths, i, mxCreateString(fullpath.c_str()));

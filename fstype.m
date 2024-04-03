@@ -12,7 +12,6 @@ classdef fstype < uint8
         fifo (7)
         socket (8)
         unknown (9)
-        
     end
 
 end
