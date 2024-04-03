@@ -64,16 +64,14 @@ function [files, filenames] = fsfind(parent_dir, pattern, opts)
         opts.Canonical(1,1) logical = false
     end
 
-    persistent use_mex; % cleared when the compile function is called
-    if isempty(use_mex)
-        use_mex = exist(['mex_listfiles.' mexext],'file') > 0;
-
-        if ~use_mex
-            warning('fsfind:not_compiled',...
-                ['fsfind is running without MEX support.  ' ...
-                'Run "compile_mex_listfiles()" to enable faster code execution.']);
-        end
+    persistent is_compiled; % cleared when compile_mex_listfiles is called
+    if isempty(is_compiled)
+        is_compiled = exist(['mex_listfiles.' mexext],'file') > 0;
     end
+
+    assert(is_compiled, 'fsfind:not_compiled', ...
+        ['fsfind requires the support function "mex_listfiles" be compiled.  ' ...
+        'Run "compile_mex_listfiles()" to resolve this error.']);
 
     % depth must at least match the size of the guided search
     opts.Depth = max(opts.Depth, numel(opts.DepthwisePattern));
@@ -87,7 +85,7 @@ function [files, filenames] = fsfind(parent_dir, pattern, opts)
             continue
         end
 
-        [fp, fn] = execute_search(parent_dir{i}, pattern, opts, use_mex);
+        [fp, fn] = search(parent_dir{i}, pattern, opts);
 
         files = vertcat(files, fp); %#ok<*AGROW>
         filenames = vertcat(filenames, fn);
@@ -95,7 +93,7 @@ function [files, filenames] = fsfind(parent_dir, pattern, opts)
 
 end
 
-function [all_filepaths, all_filenames] = execute_search(folder, pattern, opts, use_mex)
+function [all_filepaths, all_filenames] = search(folder, pattern, opts)
 
     separator = string(filesep);
 

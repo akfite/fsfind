@@ -78,6 +78,6 @@ function [ok, msg] = compile_mex_listfiles(cmd)
     end
 
     % clear state of caller function that will track compilation status
-    clear findfiles;
+    clear fsfind;
 
 end
