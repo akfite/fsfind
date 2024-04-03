@@ -32,10 +32,15 @@ function [files, filenames] = fsfind(parent_dir, pattern, opts)
 %             is large, which enables crawling through massive filesystems
 %           - supports regular expressions
 %
+%       'Canonical' (=false) <1x1 logical>
+%           - returns canonical, absolute paths
+%           - i.e. an absolute path that has no dot, dot-dot elements or  
+%             symbolic links in its generic format representation
+%
 %   Notes:
 %
-%       This function is much faster when the MEX support function is compiled,
-%       but it is not required.  Run compile_mex_listfiles to build.
+%       This function requires that the supporting function "mex_listfiles"
+%       be compiled.  See compile_mex_listfiles.m
 %
 %   Examples:
 %
@@ -56,6 +61,7 @@ function [files, filenames] = fsfind(parent_dir, pattern, opts)
         pattern(1,1) string = ".*"
         opts.Depth(1,1) double = 1
         opts.DepthwisePattern(:,1) string = string.empty
+        opts.Canonical(1,1) logical = false
     end
 
     persistent use_mex; % cleared when the compile function is called
@@ -125,11 +131,8 @@ function [all_filepaths, all_filenames] = execute_search(folder, pattern, opts, 
         end
         
         % get all files & directories in the current folder
-        if use_mex
-            [filenames, file_depth, is_dir] = mex_get_folder_contents(folder, depth);
-        else
-            [filenames, file_depth, is_dir] = get_folder_contents(folder, depth);
-        end
+        [filepaths, filenames, is_dir] = mex_listfiles(folder, opts.Canonical);
+        file_depth = repmat(depth, numel(filenames), 1);
 
         if isempty(filenames)
             i_search = i_search + 1; continue
@@ -141,11 +144,10 @@ function [all_filepaths, all_filenames] = execute_search(folder, pattern, opts, 
                 regexp(filenames, opts.DepthwisePattern{depth}, 'once', 'forceCellOutput'));
 
             filenames = filenames(mask);
+            filepaths = filepaths(mask);
             file_depth = file_depth(mask);
             is_dir = is_dir(mask);
         end
-
-        filepaths = folder + separator + filenames;
 
         % accumulate results
         all_filepaths = vertcat(all_filepaths, filepaths);
@@ -178,37 +180,6 @@ function [all_filepaths, all_filenames] = execute_search(folder, pattern, opts, 
 
         all_filepaths = all_filepaths(mask);
         all_filenames = all_filenames(mask);
-    end
-
-end
-
-function [filenames, depth, is_directory] = mex_get_folder_contents(folder, depth)
-
-    [filenames, is_directory] = mex_listfiles(folder);
-
-    if ~isempty(filenames)
-        depth = depth .* ones(numel(filenames), 1);
-    end
-
-end
-
-function [filenames, depth, is_directory] = get_folder_contents(folder, depth)
-
-    files = dir(folder);
-
-    % remove the '.' and '..' folders (while also not removing package folders)
-    for i = 1:numel(files)
-        if strcmp(files(i).name,'.')
-            files(i+[0 1]) = [];
-            break
-        end
-    end
-
-    filenames = {files.name}';
-    is_directory = vertcat(files.isdir);
-
-    if ~isempty(filenames)
-        depth = depth .* ones(numel(filenames), 1);
     end
 
 end

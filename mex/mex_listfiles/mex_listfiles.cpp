@@ -7,7 +7,6 @@
 #include <filesystem>
 #include <list>
 #include <string>
-#include <tuple>
 
 // mex includes
 #include "mex.h"
@@ -15,16 +14,13 @@
 
 using namespace std::filesystem;
 
-// list contents of a folder (without detailed metadata)
-inline std::list<std::tuple<std::string, bool>> get_contents(std::string folder)
+// lightweight replacement for MATLAB's "dir"
+inline std::list<path> get_contents(std::string folder)
 {
-    std::list<std::tuple<std::string, bool>> files;
+    std::list<path> files;
     for (const auto& entry : directory_iterator(folder))
     {
-        const auto p = entry.path();
-        const bool is_dir = is_directory(p);
-
-        files.emplace_back(p.filename(), is_dir);
+        files.emplace_back(entry.path());
     }
     return files;
 }
@@ -32,15 +28,15 @@ inline std::list<std::tuple<std::string, bool>> get_contents(std::string folder)
 // MATLAB gateway 
 void mexFunction(int nargout, mxArray *outputs[], int nargin, const mxArray *inputs[])
 {
-    if (nargin != 1)
+    if (nargin != 2)
     {
-        mexErrMsgTxt("Incorrect number of input arguments (expected 1).");
+        mexErrMsgTxt("Incorrect number of input arguments (expected 2).");
         // exit
     }
 
-    if (nargout > 2)
+    if (nargout > 3)
     {
-        mexErrMsgTxt("Incorrect number of output arguments (expected <= 2).");
+        mexErrMsgTxt("Incorrect number of output arguments (expected <= 3).");
         // exit
     }
     
@@ -50,25 +46,35 @@ void mexFunction(int nargout, mxArray *outputs[], int nargin, const mxArray *inp
     }
 
     const std::string folder = std::string(mxArrayToString(inputs[0]));
+    const bool make_canonical = *mxGetLogicals(inputs[1]);
     
-    // search for files
-    const std::list<std::tuple<std::string, bool>> contents = get_contents(folder);
+    // list everything in current folder
+    const std::list<path> paths = get_contents(folder);
 
-    // place files into a cell array for output
-    const mwSize N = contents.size();
+    // place filepaths & names into a cell array for output
+    const mwSize N = paths.size();
     mxArray* out_filepaths = mxCreateCellMatrix(N, 1);
+    mxArray* out_filenames = mxCreateCellMatrix(N, 1);
+    // output flag for directories
     mxArray* out_isdir = mxCreateLogicalMatrix(N, 1);
     mxLogical* p_out_isdir = mxGetLogicals(out_isdir);
 
     mwIndex i = 0;
 
-    for (const auto& item : contents)
+    // copy to outputs
+    for (path p : paths)
     {
-        mxSetCell(out_filepaths, i, mxCreateString(std::get<0>(item).c_str()));
-        p_out_isdir[i] = std::get<1>(item);
+        if (make_canonical)
+            p = std::filesystem::canonical(p);
+
+        const std::string fullpath = p;
+        mxSetCell(out_filepaths, i, mxCreateString(fullpath.c_str()));
+        mxSetCell(out_filenames, i, mxCreateString(p.filename().c_str()));
+        p_out_isdir[i] = is_directory(p);
         i++;
     }
 
     outputs[0] = out_filepaths;
-    outputs[1] = out_isdir;
+    outputs[1] = out_filenames;
+    outputs[2] = out_isdir;
 }
