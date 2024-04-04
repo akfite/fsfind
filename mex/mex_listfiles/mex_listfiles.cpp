@@ -103,9 +103,9 @@ void mexFunction(int nargout, mxArray *outputs[], int nargin, const mxArray *inp
             p = fs::canonical(p);
         }
 
-        const std::string fullpath = p;
+        const std::string fullpath = p.string();
         mxSetCell(out_filepaths, i, mxCreateString(fullpath.c_str()));
-        mxSetCell(out_filenames, i, mxCreateString(p.filename().c_str()));
+        mxSetCell(out_filenames, i, mxCreateString(p.filename().string().c_str()));
        
         p_out_type[i] = uint8_filetype(p);
 
