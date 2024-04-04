@@ -117,8 +117,10 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
             if is_compiled
                 fprintf('fsfind: first-time setup complete!\n');
             else
-                fprintf('fsfind: failed to compile; details below:\n\n');
-                disp(msg);
+                fprintf(['fsfind: failed to compile; details below:' ...
+                    '\n*****************************' ...
+                    '\n%s' ...
+                    '\n*****************************\n'], msg);
             end
         end
     end
