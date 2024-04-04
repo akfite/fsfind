@@ -66,6 +66,10 @@ function [ok, msg] = compile_mex_listfiles(cmd)
             catch err
                 ok = false;
                 msg = err.message;
+
+                if nargout < 2
+                    warning(msg);
+                end
             end
 
         case 'rebuild'
