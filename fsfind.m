@@ -39,6 +39,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %           - if a bad symbolic link is encountered while this option is
 %             enabled, it will trigger a warning and prevent any files
 %             from being found under the folder containing the bad link
+%           - requires MEX compiler be enabled
 %
 %       'CaseSensitive' (=true) <1x1 logical>
 %           - toggles case sensitivity for all pattern matching
@@ -91,43 +92,17 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
     persistent is_compiled; % cleared when compile_mex_listfiles is called
     if isempty(is_compiled)
         is_compiled = exist(['mex_listfiles.' mexext],'file') > 0;
-
+        
         if ~is_compiled
-            mex_cfg = mex.getCompilerConfigurations('C++');
-            assert(~isempty(mex_cfg), ...
-                'No MEX compiler for C++ has been configured.  Use "mex -setup -v C++".');
-
-            fprintf(...
-                'fsfind: building MEX support function (running compile_mex_listfiles())\n');
-
-            % make sure the supporting mex code is on the path
-            if exist('compile_mex_listfiles.m','file') ~= 2
-                fsroot = fileparts(mfilename('fullpath'));
-                mexroot = fullfile(fsroot, 'mex');
-                assert(exist(mexroot,'dir') == 7, ...
-                    ['Expected to find a mex' filesep 'mex_listfiles directory']);
-
-                fprintf('fsfind: adding to path: %s\n', mexroot);
-                addpath(genpath(mexroot));
-            end
-
-            % attempt to compile supporting MEX
-            [is_compiled, msg] = compile_mex_listfiles();
-
-            if is_compiled
-                fprintf('fsfind: first-time setup complete!\n');
-            else
-                fprintf(['fsfind: failed to compile; details below:' ...
-                    '\n*****************************' ...
-                    '\n%s' ...
-                    '\n*****************************\n'], msg);
-            end
+            is_compiled = configure_mex();
         end
     end
 
-    assert(is_compiled, 'fsfind:not_compiled', ...
-        ['fsfind requires the support function "mex_listfiles" be compiled.  ' ...
-        'Run "compile_mex_listfiles()" to resolve this error.']);
+    if opts.Canonical
+        assert(is_compiled, 'fsfind:not_compiled', ...
+            ['Canonical paths requires the support function "mex_listfiles" be ' ...
+            'compiled.  Run "compile_mex_listfiles()" to resolve this error.']);
+    end
 
     % depth must at least match the size of the guided search
     opts.Depth = max(opts.Depth, numel(opts.DepthwisePattern));
@@ -268,5 +243,43 @@ function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts
         all_filenames = all_filenames(mask);
         all_type = all_type(mask);
     end
+end
 
+function is_compiled = configure_mex()
+%CONFIGURE_MEX Attempt to compile the support function mex_listfiles.cpp
+
+    is_compiled = false;
+    mex_cfg = mex.getCompilerConfigurations('C++');
+
+    if isempty(mex_cfg)
+        warning('fsfind:no_mex_compiler', ...
+            ['No MEX compiler for C++ has been configured.  ' ...
+            'fsfind will have MEX codepaths disabled.  Run "mex -setup -v C++" to resolve.']);
+    else
+        fprintf(...
+            'fsfind: building MEX support function (running compile_mex_listfiles())\n');
+
+        % make sure the supporting mex code is on the path
+        if exist('compile_mex_listfiles.m','file') ~= 2
+            fsroot = fileparts(mfilename('fullpath'));
+            mexroot = fullfile(fsroot, 'mex');
+
+            if exist(mexroot,'dir') == 7
+                fprintf('fsfind: adding to path: %s\n', mexroot);
+                addpath(genpath(mexroot));
+            end
+        end
+
+        % attempt to compile supporting MEX
+        [is_compiled, msg] = compile_mex_listfiles();
+
+        if is_compiled
+            fprintf('fsfind: first-time setup complete!\n');
+        else
+            fprintf(['fsfind: failed to compile; details below:' ...
+                '\n*****************************' ...
+                '\n%s' ...
+                '\n*****************************\n'], msg);
+        end
+    end
 end
