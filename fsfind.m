@@ -36,8 +36,9 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %           - returns canonical, absolute paths
 %           - i.e. an absolute path that has no dot, dot-dot elements or  
 %             symbolic links in its generic format representation
-%           - fsfind will error when it encounters a bad symlink while
-%             this option is enabled
+%           - if a bad symbolic link is encountered while this option is
+%             enabled, it will trigger a warning and prevent any files
+%             from being found under the folder containing the bad link
 %
 %       'CaseSensitive' (=true) <1x1 logical>
 %           - toggles case sensitivity for all pattern matching
@@ -198,7 +199,15 @@ function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts
         end
         
         % get all of the contents of this folder (files, dirs, links, etc)
-        [filepaths, filenames, type] = mex_listfiles(folder, opts.Canonical);
+        try
+            [filepaths, filenames, type] = mex_listfiles(folder, opts.Canonical);
+        catch me
+            warning(me.identifier, ...
+                '%s\nThis will prevent finding any results under %s', ...
+                me.message, folder);
+
+            i_search = i_search + 1; continue
+        end
 
         file_depth = repmat(depth, numel(filenames), 1);
 
