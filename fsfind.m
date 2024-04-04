@@ -49,7 +49,9 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %
 %       TYPES <Nx1 fstype>
 %           - the type of each file returned
-%           - this is an enumeration based on std::filesystem::file_type
+%           - this is an enumeration based on std::filesystem::file_type when
+%             the MEX code is compiled; with no MEX, it will only return types
+%             "file" and "directory"
 %
 %   Notes:
 %
