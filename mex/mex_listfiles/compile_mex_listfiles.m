@@ -46,7 +46,16 @@ function [ok, msg] = compile_mex_listfiles(cmd)
 
                 % mex configs
                 MEXOPTS = {'-R2018a','-O'};
-                CXXFLAGS = {'CXXFLAGS="-std=c++17"'};
+
+                cfg = mex.getCompilerConfigurations('C++');
+                assert(~isempty(cfg), ...
+                    'No MEX C++ compiler has been configured (run "mex -setup -v C++")');
+
+                if contains(cfg.ShortName,'MSVC')
+                    CXXFLAGS = {'COMPFLAGS="-std=c++17"'};
+                else
+                    CXXFLAGS = {'CXXFLAGS="-std=c++17"'};
+                end
 
                 % compile
                 mex(MEXOPTS{:}, CXXFLAGS{:}, 'mex_listfiles.cpp');
