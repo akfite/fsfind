@@ -1,4 +1,4 @@
-//   Description: MEX implementation of listing files in a folder & is_dir flag
+//   Description: MEX implementation of listing files in a folder.
 //
 //   Author:     Austin Fite
 //   Contact:    akfite@gmail.com
@@ -60,9 +60,9 @@ inline uint8_t uint8_filetype(const fs::path& p)
 // MATLAB gateway 
 void mexFunction(int nargout, mxArray *outputs[], int nargin, const mxArray *inputs[])
 {
-    if (nargin != 2)
+    if (nargin != 1)
     {
-        mexErrMsgTxt("Incorrect number of input arguments (expected 2).");
+        mexErrMsgTxt("Incorrect number of input arguments (expected 1).");
         // exit
     }
 
@@ -78,7 +78,6 @@ void mexFunction(int nargout, mxArray *outputs[], int nargin, const mxArray *inp
     }
 
     const std::string folder = std::string(mxArrayToString(inputs[0]));
-    const bool make_canonical = *mxGetLogicals(inputs[1]);
     
     // list everything in current folder
     const std::list<fs::path> paths = get_contents(folder);
@@ -98,15 +97,9 @@ void mexFunction(int nargout, mxArray *outputs[], int nargin, const mxArray *inp
     // copy to outputs
     for (fs::path p : paths)
     {
-        if (make_canonical)
-        {
-            p = fs::canonical(p);
-        }
-
         const std::string fullpath = p.string();
         mxSetCell(out_filepaths, i, mxCreateString(fullpath.c_str()));
         mxSetCell(out_filenames, i, mxCreateString(p.filename().string().c_str()));
-       
         p_out_type[i] = uint8_filetype(p);
 
         i++;

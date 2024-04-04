@@ -32,15 +32,6 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %             is large, which enables crawling through massive filesystems
 %           - supports regular expressions
 %
-%       'Canonical' (=false) <1x1 logical>
-%           - returns canonical, absolute paths
-%           - i.e. an absolute path that has no dot, dot-dot elements or  
-%             symbolic links in its generic format representation
-%           - if a bad symbolic link is encountered while this option is
-%             enabled, it will trigger a warning and prevent any files
-%             from being found under the folder containing the bad link
-%           - requires MEX compiler be enabled
-%
 %       'CaseSensitive' (=true) <1x1 logical>
 %           - toggles case sensitivity for all pattern matching
 %
@@ -85,7 +76,6 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
         pattern(1,1) string = ".*"
         opts.Depth(1,1) double = 1
         opts.DepthwisePattern(:,1) string = string.empty
-        opts.Canonical(1,1) logical = false
         opts.CaseSensitive(1,1) logical = true
     end
 
@@ -96,12 +86,6 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
         if ~is_compiled
             is_compiled = configure_mex();
         end
-    end
-
-    if opts.Canonical
-        assert(is_compiled, 'fsfind:not_compiled', ...
-            ['Canonical paths requires the support function "mex_listfiles" be ' ...
-            'compiled.  Run "compile_mex_listfiles()" to resolve this error.']);
     end
 
     % depth must at least match the size of the guided search
@@ -117,7 +101,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
             continue
         end
 
-        [fp, fn, type] = search(parent_dir{i}, pattern, opts);
+        [fp, fn, type] = search(parent_dir{i}, pattern, opts, is_compiled);
 
         files = vertcat(files, fp); %#ok<*AGROW>
 
@@ -131,7 +115,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 
 end
 
-function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts)
+function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts, is_compiled)
 
     separator = string(filesep);
 
@@ -147,6 +131,7 @@ function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts
 
     % work with integers for speed (it makes a significant difference here)
     dir_type = uint8(fstype.directory);
+    file_type = uint8(fstype.file);
 
     if opts.CaseSensitive
         caseopt = {};
@@ -176,14 +161,24 @@ function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts
         end
         
         % get all of the contents of this folder (files, dirs, links, etc)
-        try
-            [filepaths, filenames, type] = mex_listfiles(folder, opts.Canonical);
-        catch me
-            warning(me.identifier, ...
-                '%s\nThis will prevent finding any results under %s', ...
-                me.message, folder);
-
-            i_search = i_search + 1; continue
+        if is_compiled
+            % MEX codepath
+            try
+                [filepaths, filenames, type] = mex_listfiles(folder);
+            catch me
+                warning(me.identifier, ...
+                    '%s\nThis will prevent finding any results under %s', ...
+                    me.message, folder);
+    
+                i_search = i_search + 1; continue
+            end
+        else
+            % non-MEX codepath
+            [filepaths, filenames, is_dir] = listfiles(folder);
+            
+            % map is_dir into fstype enum (assuming all non-directories are files)
+            type = repmat(file_type, size(is_dir));
+            type(is_dir) = dir_type;
         end
 
         file_depth = repmat(depth, numel(filenames), 1);
@@ -245,6 +240,24 @@ function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts
     end
 end
 
+function [filepaths, filenames, is_directory] = listfiles(folder)
+%GET_CONTENTS Get the contents of the folder without using MEX.
+
+    files = dir(folder);
+
+    % remove the '.' and '..' folders
+    for i = 1:numel(files)
+        if strcmp(files(i).name,'.')
+            files(i+[0 1]) = [];
+            break
+        end
+    end
+
+    filenames = string({files.name}');
+    filepaths = string(folder) + filesep + filenames;
+    is_directory = vertcat(files.isdir);
+end
+
 function is_compiled = configure_mex()
 %CONFIGURE_MEX Attempt to compile the support function mex_listfiles.cpp
 
@@ -280,6 +293,9 @@ function is_compiled = configure_mex()
                 '\n*****************************' ...
                 '\n%s' ...
                 '\n*****************************\n'], msg);
+
+            warning('fsfind:not_compiled', ...
+                'fsfind is running without MEX support');
         end
     end
 end
