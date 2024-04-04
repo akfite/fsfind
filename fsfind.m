@@ -256,12 +256,19 @@ function [filepaths, filenames, is_directory] = listfiles(folder)
     filenames = string({files.name}');
     filepaths = string(folder) + filesep + filenames;
     is_directory = vertcat(files.isdir);
+
 end
 
 function is_compiled = configure_mex()
 %CONFIGURE_MEX Attempt to compile the support function mex_listfiles.cpp
 
     is_compiled = false;
+
+    % MEX form is faster than dir() on unix, slower on windows...
+    if ispc
+        return
+    end
+
     mex_cfg = mex.getCompilerConfigurations('C++');
 
     if isempty(mex_cfg)
@@ -298,4 +305,5 @@ function is_compiled = configure_mex()
                 'fsfind is running without MEX support');
         end
     end
+
 end
