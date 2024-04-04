@@ -1,4 +1,4 @@
-# fsfind
+# fsfind.m
 
 ## Description
 
