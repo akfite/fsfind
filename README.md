@@ -65,4 +65,10 @@ files = fsfind(root, `data\.csv', 'DepthwisePattern', {'dataset-\d+', 'results'}
 This way, the search does not go inside each `collect_` folder because the `DepthwisePattern`
 only includes matches against the `results` folder at the second depth level.  Note that each
 pattern only needs to partially match--so in this example, `dataset-\d+` could just as well be
-`dataset` and we would get the same result.
+`dataset` and we would get the same result.  Also, since we did not specify `Depth` but we did
+specify the `DepthwisePattern`, the `Depth` defaulted to one more than the length of the filter--
+in this case, `3`.
+
+This concept is powerful for large filesystems.  You can design fast searches on directories 10+ 
+levels deep that would otherwise take ages using something like `dir(**/*.m)`.
+
