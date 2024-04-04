@@ -51,7 +51,10 @@ function [ok, msg] = compile_mex_listfiles(cmd)
                 assert(~isempty(cfg), ...
                     'No MEX C++ compiler has been configured (run "mex -setup -v C++")');
 
-                if contains(cfg.ShortName,'MSVC')
+                if contains(cfg.ShortName, 'mingw')
+                    assert(str2double(cfg.Version(1)) >= 9, ...
+                        'MinGW does not support std::filesystem until v9.1+');
+                elseif contains(cfg.ShortName,'MSVC')
                     CXXFLAGS = {'COMPFLAGS="/std:c++17"'};
                 else
                     CXXFLAGS = {'CXXFLAGS="-std=c++17"'};
