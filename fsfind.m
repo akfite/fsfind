@@ -39,6 +39,9 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %           - fsfind will error when it encounters a bad symlink while
 %             this option is enabled
 %
+%       'CaseSensitive' (=true) <1x1 logical>
+%           - toggles case sensitivity for all pattern matching
+%
 %   Outputs:
 %
 %       FILES <Nx1 string>
@@ -46,8 +49,10 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %
 %       FILENAMES <Nx1 string>
 %           - the names of the files that were matched
-%           - equivalent to [~, FILENAMES] = fileparts(FILES) but provided
-%             here for convenience and speed
+%           - equivalent to the following:
+%
+%               [~, FILENAMES, EXT] = fileparts(FILES)
+%               FILENAMES = strcat(FILENAMES, EXT);
 %
 %       TYPES <Nx1 fstype>
 %           - the type of each file returned
@@ -79,6 +84,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
         opts.Depth(1,1) double = 1
         opts.DepthwisePattern(:,1) string = string.empty
         opts.Canonical(1,1) logical = false
+        opts.CaseSensitive(1,1) logical = true
     end
 
     persistent is_compiled; % cleared when compile_mex_listfiles is called
@@ -134,6 +140,12 @@ function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts
     % work with integers for speed (it makes a significant difference here)
     dir_type = uint8(fstype.directory);
 
+    if opts.CaseSensitive
+        caseopt = {};
+    else
+        caseopt = {'ignorecase'};
+    end
+
     i_search = 0;
     depth = 1;
 
@@ -167,7 +179,10 @@ function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts
         % apply depthwise regex pattern to filter matches
         if numel(opts.DepthwisePattern) >= depth && ~strcmp(opts.DepthwisePattern{depth}, '.*')
             mask = ~cellfun('isempty', ...
-                regexp(filenames, opts.DepthwisePattern{depth}, 'once', 'forceCellOutput'));
+                regexp(filenames, opts.DepthwisePattern{depth}, ...
+                'once', ...
+                caseopt{:}, ...
+                'forceCellOutput'));
 
             filenames = filenames(mask);
             filepaths = filepaths(mask);
@@ -203,7 +218,10 @@ function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts
     % apply the pattern to filter results by filename
     if ~strcmp(pattern, ".*")
         mask = ~cellfun('isempty', ...
-            regexp(all_filenames, pattern, 'once', 'forceCellOutput'));
+            regexp(all_filenames, pattern, ...
+                'once', ...
+                caseopt{:}, ...
+                'forceCellOutput'));
 
         all_filepaths = all_filepaths(mask);
         all_filenames = all_filenames(mask);
