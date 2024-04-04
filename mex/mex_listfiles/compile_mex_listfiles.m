@@ -14,7 +14,7 @@ function [ok, msg] = compile_mex_listfiles(cmd)
 %           'clean'   - deletes all compiled code
 %           'rebuild' - runs 'clean', followed by 'build'
 %
-%   See also: COMPILE_MEX
+%   See also: fsfind
 
 %   Author:  Austin Fite
 %   Date:    2024
