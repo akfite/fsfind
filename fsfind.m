@@ -91,7 +91,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
     end
 
     % depth must at least match the size of the guided search
-    opts.Depth = max(opts.Depth, numel(opts.DepthwisePattern));
+    opts.Depth = max(opts.Depth, numel(opts.DepthwisePattern)+1);
 
     files = string.empty;
     filenames = string.empty;
