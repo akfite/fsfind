@@ -52,7 +52,7 @@ function [ok, msg] = compile_mex_listfiles(cmd)
                     'No MEX C++ compiler has been configured (run "mex -setup -v C++")');
 
                 if contains(cfg.ShortName,'MSVC')
-                    CXXFLAGS = {'COMPFLAGS="-std=c++17"'};
+                    CXXFLAGS = {'COMPFLAGS="/std:c++17"'};
                 else
                     CXXFLAGS = {'CXXFLAGS="-std=c++17"'};
                 end
