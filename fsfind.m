@@ -27,7 +27,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %
 %       'DepthwisePattern' (=string.empty) <Nx1 string>
 %           - text to match at each depth of the search
-%           - i.e. DepthwisePattern{k} matches at depth=k
+%           - i.e. DepthwisePattern{k} matches filenames at depth=k
 %           - can significantly reduce the search scope when the Depth
 %             is large, which enables crawling through massive filesystems
 %           - supports regular expressions
@@ -90,6 +90,36 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
     persistent is_compiled; % cleared when compile_mex_listfiles is called
     if isempty(is_compiled)
         is_compiled = exist(['mex_listfiles.' mexext],'file') > 0;
+
+        if ~is_compiled
+            mex_cfg = mex.getCompilerConfigurations('C++');
+            assert(~isempty(mex_cfg), ...
+                'No MEX compiler for C++ has been configured.  Use "mex -setup -v C++".');
+
+            fprintf(...
+                'fsfind: building MEX support function (running compile_mex_listfiles())\n');
+
+            % make sure the supporting mex code is on the path
+            if exist('compile_mex_listfiles.m','file') ~= 2
+                fsroot = fileparts(mfilename('fullpath'));
+                mexroot = fullfile(fsroot, 'mex');
+                assert(exist(mexroot,'dir') == 7, ...
+                    ['Expected to find a mex' filesep 'mex_listfiles directory']);
+
+                fprintf('fsfind: adding to path: %s\n', mexroot);
+                addpath(genpath(mexroot));
+            end
+
+            % attempt to compile supporting MEX
+            [is_compiled, msg] = compile_mex_listfiles();
+
+            if is_compiled
+                fprintf('fsfind: first-time setup complete!\n');
+            else
+                fprintf('fsfind: failed to compile; details below:\n\n');
+                disp(msg);
+            end
+        end
     end
 
     assert(is_compiled, 'fsfind:not_compiled', ...
