@@ -18,6 +18,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %       PATTERN <Nx1 string>
 %           - text to match against filenames
 %           - supports regular expressions
+%           - leave as an empty array ('') to match anything
 %
 %   Inputs (optional param-value pairs):
 %
@@ -26,7 +27,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %
 %       'Depth' (=1) <1x1 integer>
 %           - the maximum search depth relative to PARENT_DIR
-%           - will be set to max(MaxDepth, numel(DepthwisePattern))
+%           - will be set to max(MaxDepth, numel(DepthwisePattern)+1)
 %
 %       'DepthwisePattern' (=string.empty) <Nx1 string>
 %           - text to match at each depth of the search
@@ -34,6 +35,9 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %           - can significantly reduce the search scope when the Depth
 %             is large, which enables crawling through massive filesystems
 %           - supports regular expressions
+%           - leave as an empty array to match anything at a particular
+%             depth.  e.g. for applying a filter only to the second folder
+%             level, we may set this to {'', 'whatever'}
 %
 %       'Silent' (=false) <1x1 logical>
 %           - suppresses all warnings & print statements
@@ -233,9 +237,10 @@ function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts
     end
 
     % if we guided the search using a depthwise filter, it should be impossible to
-    % return results before the end of the filter
+    % return results before the end of the filter.  note that we always expect files
+    % to be >= N+1 depth, where N is the number of filters
     if ~isempty(opts.DepthwisePattern)
-        mask = all_depths >= length(opts.DepthwisePattern);
+        mask = all_depths >= length(opts.DepthwisePattern)+1;
 
         all_filepaths = all_filepaths(mask);
         all_filenames = all_filenames(mask);
