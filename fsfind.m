@@ -21,6 +21,9 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %
 %   Inputs (optional param-value pairs):
 %
+%       'CaseSensitive' (=true) <1x1 logical>
+%           - toggles case sensitivity for all pattern matching
+%
 %       'Depth' (=1) <1x1 integer>
 %           - the maximum search depth relative to PARENT_DIR
 %           - will be set to max(MaxDepth, numel(DepthwisePattern))
@@ -31,9 +34,6 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %           - can significantly reduce the search scope when the Depth
 %             is large, which enables crawling through massive filesystems
 %           - supports regular expressions
-%
-%       'CaseSensitive' (=true) <1x1 logical>
-%           - toggles case sensitivity for all pattern matching
 %
 %       'Silent' (=false) <1x1 logical>
 %           - suppresses all warnings & print statements
@@ -79,9 +79,9 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
     arguments
         parent_dir(:,1) string = pwd
         pattern(1,1) string = ".*"
+        opts.CaseSensitive(1,1) logical = true
         opts.Depth(1,1) double = 1
         opts.DepthwisePattern(:,1) string = string.empty
-        opts.CaseSensitive(1,1) logical = true
         opts.Silent(1,1) = false
     end
 
