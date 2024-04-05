@@ -85,7 +85,8 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
     if isempty(is_compiled)
         is_compiled = exist(['mex_listfiles.' mexext],'file') > 0;
         
-        if ~is_compiled
+        % MEX form is faster than dir() on unix, slower on windows...
+        if ~is_compiled && isunix()
             is_compiled = configure_mex();
         end
     end
@@ -268,11 +269,6 @@ function is_compiled = configure_mex()
 %CONFIGURE_MEX Attempt to compile the support function mex_listfiles.cpp
 
     is_compiled = false;
-
-    % MEX form is faster than dir() on unix, slower on windows...
-    if ispc
-        return
-    end
 
     mex_cfg = mex.getCompilerConfigurations('C++');
 
