@@ -169,9 +169,13 @@ function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts
             try
                 [filepaths, filenames, type] = mex_listfiles(folder);
             catch me
-                warning(me.identifier, ...
-                    '%s\nThis will prevent finding any results under %s', ...
-                    me.message, folder);
+                if contains(me.message, 'permission', 'ignorecase', true)
+                    fprintf('Permission denied: %s\n', folder);
+                else
+                    warning(me.identifier, ...
+                        '%s\nThis will prevent finding any results under %s', ...
+                        me.message, folder);
+                end
     
                 i_search = i_search + 1; continue
             end
