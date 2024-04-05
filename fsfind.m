@@ -62,8 +62,10 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %
 %   Notes:
 %
-%       This function requires that the supporting function "mex_listfiles"
-%       be compiled.  See compile_mex_listfiles.m
+%       This function can take advantage of C++ MEX via a support function,
+%       mex_listfiles.  It is compiled the first time FSFIND runs on UNIX 
+%       systems.  For Windows users the non-MEX codepath is usually preferred,
+%       but you can override and use the MEX version by running compile_mex_listfiles.
 %
 %   Examples:
 %
@@ -262,7 +264,7 @@ function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts
 end
 
 function [filepaths, filenames, is_directory] = listfiles(folder)
-%GET_CONTENTS Get the contents of the folder without using MEX.
+%LISTFILES Get the contents of the folder without using MEX.
 
     files = dir(folder);
 
