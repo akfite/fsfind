@@ -35,6 +35,9 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %       'CaseSensitive' (=true) <1x1 logical>
 %           - toggles case sensitivity for all pattern matching
 %
+%       'Silent' (=false) <1x1 logical>
+%           - suppresses all warnings & print statements
+%
 %   Outputs:
 %
 %       FILES <Nx1 string>
@@ -79,6 +82,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
         opts.Depth(1,1) double = 1
         opts.DepthwisePattern(:,1) string = string.empty
         opts.CaseSensitive(1,1) logical = true
+        opts.Silent(1,1) = false
     end
 
     persistent is_compiled; % cleared when compile_mex_listfiles is called
@@ -87,7 +91,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
         
         % MEX form is faster than dir() on unix, slower on windows...
         if ~is_compiled && isunix()
-            is_compiled = configure_mex();
+            is_compiled = configure_mex(opts);
         end
     end
 
@@ -169,12 +173,14 @@ function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts
             try
                 [filepaths, filenames, type] = mex_listfiles(folder);
             catch me
-                if contains(me.message, 'permission', 'ignorecase', true)
-                    fprintf('Permission denied: %s\n', folder);
-                else
-                    warning(me.identifier, ...
-                        '%s\nThis will prevent finding any results under %s', ...
-                        me.message, folder);
+                if ~opts.Silent
+                    if contains(me.message, 'permission', 'ignorecase', true)
+                        fprintf('Permission denied: %s\n', folder);
+                    else
+                        warning(me.identifier, ...
+                            '%s\nThis will prevent finding any results under %s', ...
+                            me.message, folder);
+                    end
                 end
     
                 i_search = i_search + 1; continue
@@ -269,7 +275,7 @@ function [filepaths, filenames, is_directory] = listfiles(folder)
 
 end
 
-function is_compiled = configure_mex()
+function is_compiled = configure_mex(opts)
 %CONFIGURE_MEX Attempt to compile the support function mex_listfiles.cpp
 
     is_compiled = false;
@@ -277,12 +283,16 @@ function is_compiled = configure_mex()
     mex_cfg = mex.getCompilerConfigurations('C++');
 
     if isempty(mex_cfg)
-        warning('fsfind:no_mex_compiler', ...
-            ['No MEX compiler for C++ has been configured.  ' ...
-            'fsfind will have MEX codepaths disabled.  Run "mex -setup -v C++" to resolve.']);
+        if ~opts.Silent
+            warning('fsfind:no_mex_compiler', ...
+                ['No MEX compiler for C++ has been configured.  ' ...
+                'fsfind will have MEX codepaths disabled.  Run "mex -setup -v C++" to resolve.']);
+        end
     else
-        fprintf(...
-            'fsfind: building MEX support function (running compile_mex_listfiles())\n');
+        if ~opts.Silent
+            fprintf(...
+                'fsfind: building MEX support function (running compile_mex_listfiles())\n');
+        end
 
         % make sure the supporting mex code is on the path
         if exist('compile_mex_listfiles.m','file') ~= 2
@@ -290,7 +300,10 @@ function is_compiled = configure_mex()
             mexroot = fullfile(fsroot, 'mex');
 
             if exist(mexroot,'dir') == 7
-                fprintf('fsfind: adding to path: %s\n', mexroot);
+                if ~opts.Silent
+                    fprintf('fsfind: adding to path: %s\n', mexroot);
+                end
+
                 addpath(genpath(mexroot));
             end
         end
@@ -298,16 +311,18 @@ function is_compiled = configure_mex()
         % attempt to compile supporting MEX
         [is_compiled, msg] = compile_mex_listfiles();
 
-        if is_compiled
-            fprintf('fsfind: first-time setup complete!\n');
-        else
-            fprintf(['fsfind: failed to compile; details below:' ...
-                '\n*****************************' ...
-                '\n%s' ...
-                '\n*****************************\n'], msg);
-
-            warning('fsfind:not_compiled', ...
-                'fsfind is running without MEX support');
+        if ~opts.Silent
+            if is_compiled
+                fprintf('fsfind: first-time setup complete!\n');
+            else
+                fprintf(['fsfind: failed to compile; details below:' ...
+                    '\n*****************************' ...
+                    '\n%s' ...
+                    '\n*****************************\n'], msg);
+    
+                warning('fsfind:not_compiled', ...
+                    'fsfind is running without MEX support');
+            end
         end
     end
 
