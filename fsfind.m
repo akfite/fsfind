@@ -110,7 +110,9 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 
     for i = 1:numel(parent_dir)
         if ~exist(parent_dir{i},'dir')
-            warning('fsfind:not_dir', '%s is not a directory; skipping...', parent_dir{i});
+            if ~opts.Silent
+                warning('fsfind:not_dir', '%s is not a directory; skipping...', parent_dir{i});
+            end
             continue
         end
 
