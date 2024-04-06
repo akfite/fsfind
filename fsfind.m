@@ -27,7 +27,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %
 %       'Depth' (=1) <1x1 integer>
 %           - the maximum search depth relative to PARENT_DIR
-%           - will be set to max(MaxDepth, numel(DepthwisePattern)+1)
+%           - will be set to max(Depth, numel(DepthwisePattern)+1)
 %
 %       'DepthwisePattern' (=string.empty) <Nx1 string>
 %           - text to match at each depth of the search

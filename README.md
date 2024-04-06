@@ -59,7 +59,7 @@ However, if we know that this directory structure will be consistent, we can opt
 search by supplying a filter at each depth level like so:
 
 ```
-files = fsfind(root, `data\.csv', 'DepthwisePattern', {'dataset-\d+', 'results'})
+files = fsfind(root, 'data\.csv', 'DepthwisePattern', {'dataset-\d+', 'results'})
 ```
 
 This way, the search does not go inside each `collect_` folder because the `DepthwisePattern`
