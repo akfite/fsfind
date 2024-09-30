@@ -16,7 +16,7 @@
 namespace fs = std::filesystem;
 
 // lightweight replacement for MATLAB's "dir"
-inline std::list<fs::path> get_contents(std::string folder)
+inline std::list<fs::path> get_contents(const std::string& folder)
 {
     std::list<fs::path> files;
     for (const auto& entry : fs::directory_iterator(folder))
