@@ -6,8 +6,8 @@
 
 #include <cstdint>
 #include <filesystem>
-#include <list>
 #include <string>
+#include <vector>
 
 // mex includes
 #include "mex.h"
@@ -16,12 +16,12 @@
 namespace fs = std::filesystem;
 
 // lightweight replacement for MATLAB's "dir"
-inline std::list<fs::path> get_contents(const std::string& folder)
+inline std::vector<fs::path> get_contents(const std::string& folder)
 {
-    std::list<fs::path> files;
+    std::vector<fs::path> files;
     for (const auto& entry : fs::directory_iterator(folder))
     {
-        files.emplace_back(entry.path());
+        files.push_back(entry.path());
     }
     return files;
 }
@@ -80,7 +80,7 @@ void mexFunction(int nargout, mxArray *outputs[], int nargin, const mxArray *inp
     const std::string folder = std::string(mxArrayToString(inputs[0]));
     
     // list everything in current folder
-    const std::list<fs::path> paths = get_contents(folder);
+    const std::vector<fs::path> paths = get_contents(folder);
 
     // place filepaths & names into a cell array for output
     size_t N = paths.size();
@@ -95,10 +95,9 @@ void mexFunction(int nargout, mxArray *outputs[], int nargin, const mxArray *inp
     mwIndex i = 0;
 
     // copy to outputs
-    for (fs::path p : paths)
+    for (const fs::path& p : paths)
     {
-        const std::string fullpath = p.string();
-        mxSetCell(out_filepaths, i, mxCreateString(fullpath.c_str()));
+        mxSetCell(out_filepaths, i, mxCreateString(p.string().c_str()));
         mxSetCell(out_filenames, i, mxCreateString(p.filename().string().c_str()));
         p_out_type[i] = uint8_filetype(p);
 
