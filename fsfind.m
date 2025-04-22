@@ -42,6 +42,16 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %       'Silent' (=false) <1x1 logical>
 %           - suppresses all warnings & print statements
 %
+%       'SkipFolderFcn' (=[]) <1x1 function_handle>
+%           - function to check whether a folder should be scanned PRIOR to
+%             actually listing the contents of the directory
+%           - for example, let's say you want to avoid checking any folders
+%             that were modified more than X years ago.  you can implement
+%             a function here that checks the date of each folder prior to
+%             listing the folder contents, and return true if the folder meets
+%             the threshold to skip.
+%           - signature: @(folder) <return true if folder should be skipped>
+%
 %   Outputs:
 %
 %       FILES <Nx1 string>
@@ -89,6 +99,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
         opts.Depth(1,1) double = 1
         opts.DepthwisePattern(:,1) string = string.empty
         opts.Silent(1,1) = false
+        opts.SkipFolderFcn function_handle = function_handle.empty
     end
 
     persistent is_compiled; % cleared when compile_mex_listfiles is called
@@ -172,6 +183,10 @@ function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts
         end
 
         if ~is_dir
+            i_search = i_search + 1; continue
+        end
+
+        if ~isempty(opts.SkipFolderFcn) && feval(opts.SkipFolderFcn, folder)
             i_search = i_search + 1; continue
         end
         
