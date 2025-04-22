@@ -329,6 +329,11 @@ function is_compiled = configure_mex(opts)
                 end
 
                 addpath(genpath(mexroot));
+
+                if exist(['mex_listfiles.' mexext],'file') > 0
+                    is_compiled = true;
+                    return
+                end
             end
         end
 
