@@ -52,6 +52,8 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %             a function here that checks the date of each folder prior to
 %             listing the folder contents, and return true if the folder meets
 %             the threshold to skip.
+%           - avoid calling dir() on the contents of this folder in your function;
+%             the point of this is to conditionally skip the call to dir() for speed
 %           - signature: @(folder) <return true if folder should be skipped>
 %
 %   Outputs:
