@@ -73,9 +73,8 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %   Notes:
 %
 %       This function can take advantage of C++ MEX via a support function,
-%       mex_listfiles.  It is compiled the first time FSFIND runs on UNIX 
-%       systems.  For Windows users the non-MEX codepath is usually preferred,
-%       but you can override and use the MEX version by running compile_mex_listfiles.
+%       mex_listfiles.  It is compiled the first time FSFIND runs, so long
+%       as a MEX compiler that supports C++17 is available.
 %
 %   Examples:
 %
@@ -102,12 +101,12 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
         opts.SkipFolderFcn function_handle = function_handle.empty
     end
 
-    persistent is_compiled; % cleared when compile_mex_listfiles is called
+    % persistent state cleared when compile_mex_listfiles is called
+    persistent is_compiled;
     if isempty(is_compiled)
         is_compiled = exist(['mex_listfiles.' mexext],'file') > 0;
-        
-        % MEX form is faster than dir() on unix, slower on windows...
-        if ~is_compiled && isunix()
+
+        if ~is_compiled && check_for_mex_compiler()
             is_compiled = configure_mex(opts);
         end
     end
@@ -296,6 +295,29 @@ function [filepaths, filenames, is_directory] = listfiles(folder)
     filenames = string({files.name}');
     filepaths = string(folder) + filesep + filenames;
     is_directory = vertcat(files.isdir);
+
+end
+
+function has_compiler = check_for_mex_compiler()
+%CHECK_FOR_MEX_COMPILER Check for the ability to compile on this computer.
+
+    has_compiler = false;
+    cfg = mex.getCompilerConfigurations('C++');
+
+    if isempty(cfg)
+        return
+    end
+
+    if contains(cfg.ShortName, 'mingw')
+        major_ver = regexp(cfg.Version, '^\d+');
+        if str2double(major_ver) < 9
+            return
+        end
+    else
+        % assume C++17 is available
+    end
+
+    has_compiler = true;
 
 end
 
