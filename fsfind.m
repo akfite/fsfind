@@ -56,6 +56,10 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %             the point of this is to conditionally skip the call to dir() for speed
 %           - signature: @(folder) <return true if folder should be skipped>
 %
+%       'StopAtMatch' (=inf) <1x1 numeric>
+%           - stop searching after N matches have been found
+%           - the number of results returned will be <= N
+%
 %   Outputs:
 %
 %       FILES <Nx1 string>
@@ -122,6 +126,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
     files = string.empty;
     filenames = string.empty;
     types = fstype.empty;
+    match_count = 0;
 
     for i = 1:numel(parent_dir)
         if ~exist(parent_dir{i},'dir')
@@ -131,21 +136,29 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
             continue
         end
 
-        [fp, fn, type] = search(parent_dir{i}, pattern, opts, is_compiled);
+        [fp, fn, type, match_count] = search(parent_dir{i}, pattern, opts, is_compiled, match_count);
 
+        % accumulate
         files = vertcat(files, fp); %#ok<*AGROW>
+        filenames = vertcat(filenames, fn);
+        types = vertcat(types, fstype(type));
 
-        if nargout > 1
-            filenames = vertcat(filenames, fn);
+        % if user requests we stop at N, never return more than N matches
+        if numel(files) > opts.StopAtMatch
+            N = floor(opts.StopAtMatch);
+            files = files(1:N);
+            filenames = filenames(1:N);
+            types = types(1:N);
         end
-        if nargout > 2
-            types = vertcat(types, fstype(type));
+        
+        if numel(files) == opts.StopAtMatch
+            break
         end
     end
 
 end
 
-function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts, is_compiled)
+function [all_filepaths, all_filenames, all_type, match_count] = search(folder, pattern, opts, is_compiled, match_count)
 
     separator = string(filesep);
 
@@ -162,6 +175,11 @@ function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts
     % work with integers for speed (it makes a significant difference here)
     dir_type = uint8(fstype.directory);
     file_type = uint8(fstype.file);
+
+    % check up front to see if the user defined a pattern, or if we're matching anything
+    match_anything = ...
+        isempty(pattern) || ...
+        (isscalar(pattern) && (isempty(pattern{1}) || strcmp(pattern,'.*')));
 
     if opts.CaseSensitive
         caseopt = {};
@@ -244,11 +262,38 @@ function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts
             type = type(mask);
         end
 
+        % if we have the option to return early, we must match as we search
+        if ~isinf(opts.StopAtMatch)
+            if match_anything
+                pattern_match_mask = true(size(filenames));
+            else
+                pattern_match_mask = false(size(filenames));
+                for i = 1:numel(pattern)
+                    pattern_match_mask = pattern_match_mask | ~cellfun('isempty', ...
+                        regexp(filenames, pattern{i}, ...
+                        'once', ...
+                        caseopt{:}, ...
+                        'forceCellOutput'));
+                end
+            end
+
+            is_match = pattern_match_mask & (file_depth > numel(opts.DepthwisePattern));
+            match_count = match_count + sum(is_match);
+
+            % note that we can't accumulate only the matches because it's possible that
+            % a non-matching folder could be searched and eventually contain a match in
+            % a subfolder.  discarding the top-level folder here would be problematic.
+        end
+
         % accumulate results
         all_filepaths = vertcat(all_filepaths, filepaths);
         all_filenames = vertcat(all_filenames, filenames);
         all_depths = vertcat(all_depths, file_depth);
         all_type = vertcat(all_type, type);
+
+        if match_count >= opts.StopAtMatch
+            break
+        end
  
         i_search = i_search + 1;
     end
@@ -261,9 +306,9 @@ function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts
 
     % if we guided the search using a depthwise filter, it should be impossible to
     % return results before the end of the filter.  note that we always expect files
-    % to be >= N+1 depth, where N is the number of filters
+    % to be > N, where N is the number of depthwise filters
     if ~isempty(opts.DepthwisePattern)
-        mask = all_depths >= length(opts.DepthwisePattern)+1;
+        mask = all_depths > numel(opts.DepthwisePattern);
 
         all_filepaths = all_filepaths(mask);
         all_filenames = all_filenames(mask);
@@ -271,11 +316,7 @@ function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts
     end
 
     % apply the pattern to filter results by filename
-    empty_pattern = ...
-        isempty(pattern) || ...
-        (isscalar(pattern) && (isempty(pattern{1}) || strcmp(pattern,'.*')));
-
-    if ~empty_pattern
+    if ~match_anything
         mask = false(size(all_filenames));
 
         for i = 1:numel(pattern)
@@ -286,11 +327,11 @@ function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts
                 'forceCellOutput'));
         end
 
-
         all_filepaths = all_filepaths(mask);
         all_filenames = all_filenames(mask);
         all_type = all_type(mask);
     end
+
 end
 
 function [filepaths, filenames, is_directory] = listfiles(folder)
