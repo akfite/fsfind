@@ -17,8 +17,10 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %
 %       PATTERN <Nx1 string>
 %           - text to match against filenames
-%           - supports regular expressions
-%           - leave as an empty array ('') to match anything
+%           - supports regular expressions (see <a href="matlab:doc regexp">regexp</a>)
+%           - if an array of strings is provided, FSFIND returns files that match
+%             any of the patterns (match pattern1 OR pattern2 OR ....)
+%           - leave as an empty array ('' or string.empty) to match anything
 %
 %   Inputs (optional param-value pairs):
 %
@@ -93,7 +95,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 
     arguments
         parent_dir(:,1) string = pwd
-        pattern(1,1) string = ".*"
+        pattern(:,1) string = ".*"
         opts.CaseSensitive(1,1) logical = true
         opts.Depth(1,1) double = 1
         opts.DepthwisePattern(:,1) string = string.empty
@@ -266,12 +268,21 @@ function [all_filepaths, all_filenames, all_type] = search(folder, pattern, opts
     end
 
     % apply the pattern to filter results by filename
-    if ~strcmp(pattern, ".*") && ~isempty(pattern{1})
-        mask = ~cellfun('isempty', ...
-            regexp(all_filenames, pattern, ...
+    empty_pattern = ...
+        isempty(pattern) || ...
+        (isscalar(pattern) && (isempty(pattern{1}) || strcmp(pattern,'.*')));
+
+    if ~empty_pattern
+        mask = false(size(all_filenames));
+
+        for i = 1:numel(pattern)
+            mask = mask | ~cellfun('isempty', ...
+                regexp(all_filenames, pattern{i}, ...
                 'once', ...
                 caseopt{:}, ...
                 'forceCellOutput'));
+        end
+
 
         all_filepaths = all_filepaths(mask);
         all_filenames = all_filenames(mask);
