@@ -90,8 +90,8 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %   Notes:
 %
 %       This function can take advantage of C++ MEX via a support function,
-%       mex_listfiles.  It is compiled the first time FSFIND runs, so long
-%       as a MEX compiler that supports C++17 is available.
+%       mex_listfiles.  It is compiled the first time FSFIND runs if a MEX
+%       compiler that supports C++17 is available.
 %
 %   Examples:
 %
@@ -171,14 +171,16 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
             types = types(1:N);
         end
         
-        if numel(files) == opts.StopAtMatch
+        if numel(files) == opts.StopAtMatch || toc(clock) > opts.Timeout
             break
         end
     end
 
 end
 
-function [all_filepaths, all_filenames, all_type, match_count] = search(folder, pattern, opts, use_mex, match_count, clock)
+function [all_filepaths, all_filenames, all_type, match_count] = search(...
+    folder, pattern, opts, use_mex, match_count, clock)
+    %SEARCH Recursively search subfolders (but without recursion).
 
     separator = string(filesep);
 
@@ -233,6 +235,11 @@ function [all_filepaths, all_filenames, all_type, match_count] = search(folder, 
         end
 
         if toc(clock) > opts.Timeout
+            if ~opts.Silent
+                fprintf('[fsfind] timed out (%s, stopped at: %s)\n', ...
+                    seconds(toc(clock)), ...
+                    folder);
+            end
             break
         end
         
@@ -242,7 +249,9 @@ function [all_filepaths, all_filenames, all_type, match_count] = search(folder, 
             try
                 [filepaths, filenames, type] = mex_listfiles(folder);
             catch me
-                fprintf('[fsfind] error: %s\n', folder);
+                if ~opts.Silent
+                    fprintf('[fsfind] error: %s\n', folder);
+                end
                 i_search = i_search + 1; continue
             end
         else
