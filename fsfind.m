@@ -32,11 +32,11 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %           - will be set to max(Depth, numel(DepthwisePattern)+1)
 %
 %       'DepthwisePattern' (=string.empty) <Nx1 string>
-%           - text to match at each depth of the search
-%           - i.e. DepthwisePattern{k} matches filenames at depth=k
+%           - regular expressions to match at each depth of the search; i.e. 
+%             DepthwisePattern{k} matches filenames at depth=k
+%           - only folders that match this pattern will be searched
 %           - can significantly reduce the search scope when the Depth
 %             is large, which enables crawling through massive filesystems
-%           - supports regular expressions
 %           - leave as an empty array to match anything at a particular
 %             depth.  e.g. for applying a filter only to the second folder
 %             level, we may set this to {'', 'whatever'}
@@ -98,11 +98,12 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
     arguments
         parent_dir(:,1) string = pwd
         pattern(:,1) string = ".*"
-        opts.CaseSensitive(1,1) logical = true
-        opts.Depth(1,1) double = 1
+        opts.CaseSensitive(1,1) matlab.lang.OnOffSwitchState = true
+        opts.Depth(1,1) double {mustBePositive} = 1
         opts.DepthwisePattern(:,1) string = string.empty
-        opts.Silent(1,1) = false
+        opts.Silent(1,1) matlab.lang.OnOffSwitchState = false
         opts.SkipFolderFcn function_handle = function_handle.empty
+        opts.StopAtMatch(1,1) double {mustBePositive} = inf
     end
 
     % persistent state cleared when compile_mex_listfiles is called
@@ -111,7 +112,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
         is_compiled = exist(['mex_listfiles.' mexext],'file') > 0;
 
         if ~is_compiled && check_for_mex_compiler()
-            is_compiled = configure_mex(opts);
+            is_compiled = try_to_compile(opts);
         end
     end
 
@@ -334,8 +335,8 @@ function has_compiler = check_for_mex_compiler()
 
 end
 
-function is_compiled = configure_mex(opts)
-%CONFIGURE_MEX Attempt to compile the support function mex_listfiles.cpp
+function is_compiled = try_to_compile(opts)
+%TRY_TO_COMPILE Attempt to compile the support function mex_listfiles.cpp
 
     is_compiled = false;
 
