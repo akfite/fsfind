@@ -24,7 +24,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %
 %   Inputs (optional param-value pairs):
 %
-%       'CaseSensitive' (=true) <1x1 logical>
+%       'CaseSensitive' (=true) <1x1 matlab.lang.OnOffSwitchState>
 %           - toggles case sensitivity for all pattern matching
 %
 %       'Depth' (=1) <1x1 integer>
@@ -41,7 +41,12 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %             depth.  e.g. for applying a filter only to the second folder
 %             level, we may set this to {'', 'whatever'}
 %
-%       'Silent' (=false) <1x1 logical>
+%       'Mex' (=true) <1x1 matlab.lang.OnOffSwitchState>
+%           - build & use the MEX implementation (if possible)
+%           - does not guarantee that the MEX version will be used, such as
+%             if a C++ compiler doesn't exist
+%
+%       'Silent' (=false) <1x1 matlab.lang.OnOffSwitchState>
 %           - suppresses all warnings & print statements
 %
 %       'SkipFolderFcn' (=[]) <1x1 function_handle>
@@ -105,6 +110,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
         opts.CaseSensitive(1,1) matlab.lang.OnOffSwitchState = true
         opts.Depth(1,1) double {mustBePositive} = 1
         opts.DepthwisePattern(:,1) string = string.empty
+        opts.Mex(1,1) matlab.lang.OnOffSwitchState = true
         opts.Silent(1,1) matlab.lang.OnOffSwitchState = false
         opts.SkipFolderFcn function_handle = function_handle.empty
         opts.StopAtMatch(1,1) double {mustBePositive} = inf
@@ -115,7 +121,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
     if isempty(is_compiled)
         is_compiled = exist(['mex_listfiles.' mexext],'file') > 0;
 
-        if ~is_compiled && check_for_mex_compiler()
+        if ~is_compiled && opts.Mex && check_for_mex_compiler()
             is_compiled = try_to_compile(opts);
         end
     end
@@ -136,7 +142,10 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
             continue
         end
 
-        [fp, fn, type, match_count] = search(parent_dir{i}, pattern, opts, is_compiled, match_count);
+        [fp, fn, type, match_count] = search(parent_dir{i}, pattern, ...
+            opts, ...
+            is_compiled && opts.Mex, ...
+            match_count);
 
         % accumulate
         files = vertcat(files, fp); %#ok<*AGROW>

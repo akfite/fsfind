@@ -6,7 +6,7 @@ classdef fstype < uint8
         not_found   (1)
         file        (2)
         directory   (3)
-        symlink     (4)
+        % symlink -- not included because we follow links, so will never find symlinks
         block       (5)
         character   (6)
         fifo        (7)
