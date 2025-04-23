@@ -65,6 +65,11 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %           - stop searching after N matches have been found
 %           - the number of results returned will be <= N
 %
+%       'Timeout' (=inf) <1x1 numeric or duration>
+%           - stop the search after a time limit and return whatever was found
+%             up to that point
+%           - assumes seconds (if the input is numeric; may also use duration type)
+%
 %   Outputs:
 %
 %       FILES <Nx1 string>
@@ -114,6 +119,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
         opts.Silent(1,1) matlab.lang.OnOffSwitchState = false
         opts.SkipFolderFcn function_handle = function_handle.empty
         opts.StopAtMatch(1,1) double {mustBePositive} = inf
+        opts.Timeout(1,1) = inf % numeric or duration
     end
 
     % persistent state cleared when compile_mex_listfiles is called
@@ -129,10 +135,15 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
     % depth must at least match the size of the guided search
     opts.Depth = max(opts.Depth, numel(opts.DepthwisePattern)+1);
 
+    if isa(opts.Timeout,'duration')
+        opts.Timeout = seconds(opts.Timeout);
+    end
+
     files = string.empty;
     filenames = string.empty;
     types = fstype.empty;
     match_count = 0;
+    clock = tic;
 
     for i = 1:numel(parent_dir)
         if ~exist(parent_dir{i},'dir')
@@ -145,7 +156,8 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
         [fp, fn, type, match_count] = search(parent_dir{i}, pattern, ...
             opts, ...
             is_compiled && opts.Mex, ...
-            match_count);
+            match_count, ...
+            clock);
 
         % accumulate
         files = vertcat(files, fp); %#ok<*AGROW>
@@ -167,7 +179,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 
 end
 
-function [all_filepaths, all_filenames, all_type, match_count] = search(folder, pattern, opts, is_compiled, match_count)
+function [all_filepaths, all_filenames, all_type, match_count] = search(folder, pattern, opts, use_mex, match_count, clock)
 
     separator = string(filesep);
 
@@ -220,9 +232,13 @@ function [all_filepaths, all_filenames, all_type, match_count] = search(folder, 
         if ~isempty(opts.SkipFolderFcn) && feval(opts.SkipFolderFcn, folder)
             i_search = i_search + 1; continue
         end
+
+        if toc(clock) > opts.Timeout
+            break
+        end
         
         % get all of the contents of this folder (files, dirs, links, etc)
-        if is_compiled
+        if use_mex
             % MEX codepath
             try
                 [filepaths, filenames, type] = mex_listfiles(folder);
