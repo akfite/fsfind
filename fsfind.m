@@ -244,25 +244,23 @@ function [all_filepaths, all_filenames, all_type, match_count] = search(...
         end
         
         % get all of the contents of this folder (files, dirs, links, etc)
-        if use_mex
-            % MEX codepath
-            try
+        try
+            if use_mex
                 [filepaths, filenames, type] = mex_listfiles(folder);
-            catch me
-                if ~opts.Silent
-                    fprintf('[fsfind] error: %s\n', folder);
-                end
-                i_search = i_search + 1; continue
+            else
+                [filepaths, filenames, is_dir] = listfiles(folder);
+                
+                % map is_dir into fstype enum (assuming all non-directories are files)
+                type = repmat(file_type, size(is_dir));
+                type(is_dir) = dir_type;
             end
-        else
-            % non-MEX codepath
-            [filepaths, filenames, is_dir] = listfiles(folder);
-            
-            % map is_dir into fstype enum (assuming all non-directories are files)
-            type = repmat(file_type, size(is_dir));
-            type(is_dir) = dir_type;
+        catch me
+            if ~opts.Silent
+                fprintf('[fsfind] error: %s\n', folder);
+            end
+            i_search = i_search + 1; continue
         end
-
+        
         file_depth = repmat(depth, numel(filenames), 1);
 
         if isempty(filenames)
@@ -362,6 +360,7 @@ function [filepaths, filenames, is_directory] = listfiles(folder)
 %LISTFILES Get the contents of the folder without using MEX.
 
     files = dir(folder);
+    assert(~isempty(files), 'Failed to open %s', folder);
 
     % remove the '.' and '..' folders
     for i = 1:numel(files)
