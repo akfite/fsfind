@@ -16,10 +16,9 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %           - one or more directories to search
 %
 %       PATTERN <Nx1 string>
-%           - text to match against filenames
-%           - supports regular expressions (see <a href="matlab:doc regexp">regexp</a>)
-%           - if an array of strings is provided, FSFIND returns files that match
-%             any of the patterns (match pattern1 OR pattern2 OR ....)
+%           - regular expressions to match against filenames (see <a href="matlab:doc regexp">regexp</a>)
+%           - if an array of strings is provided, FSFIND returns results that match
+%             any of the patterns
 %           - leave as an empty array ('' or string.empty) to match anything
 %
 %   Inputs (optional param-value pairs):
@@ -34,17 +33,17 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %       'DepthwisePattern' (=string.empty) <Nx1 string>
 %           - regular expressions to match at each depth of the search; i.e. 
 %             DepthwisePattern{k} matches filenames at depth=k
-%           - only folders that match this pattern will be searched
-%           - can significantly reduce the search scope when the Depth
+%           - only folders that match this pattern will be searched.  
+%             this can significantly reduce the search scope when the Depth
 %             is large, which enables crawling through massive filesystems
 %           - leave as an empty array to match anything at a particular
 %             depth.  e.g. for applying a filter only to the second folder
-%             level, we may set this to {'', 'whatever'}
+%             level, we may set this to {'', 'whatever'}.
 %
 %       'Mex' (=true) <1x1 matlab.lang.OnOffSwitchState>
-%           - build & use the MEX implementation (if possible)
-%           - does not guarantee that the MEX version will be used, such as
-%             if a C++ compiler doesn't exist
+%           - build & use the MEX implementation if possible
+%           - does not guarantee that the MEX version will be used (such as
+%             if a C++ compiler doesn't exist or compilation fails for any reason)
 %
 %       'Silent' (=false) <1x1 matlab.lang.OnOffSwitchState>
 %           - suppresses all warnings & print statements
@@ -68,7 +67,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %       'Timeout' (=inf) <1x1 numeric or duration>
 %           - stop the search after a time limit and return whatever was found
 %             up to that point
-%           - assumes seconds (if the input is numeric; may also use duration type)
+%           - seconds if the input is numeric, but duration type also supported
 %
 %   Outputs:
 %
@@ -243,16 +242,7 @@ function [all_filepaths, all_filenames, all_type, match_count] = search(folder, 
             try
                 [filepaths, filenames, type] = mex_listfiles(folder);
             catch me
-                if ~opts.Silent
-                    if contains(me.message, 'permission', 'ignorecase', true)
-                        fprintf('Permission denied: %s\n', folder);
-                    else
-                        warning(me.identifier, ...
-                            '%s\nThis will prevent finding any results under %s', ...
-                            me.message, folder);
-                    end
-                end
-    
+                fprintf('[fsfind] error: %s\n', folder);
                 i_search = i_search + 1; continue
             end
         else
@@ -417,7 +407,7 @@ function is_compiled = try_to_compile(opts)
     else
         if ~opts.Silent
             fprintf(...
-                'fsfind: building MEX support function (running compile_mex_listfiles())\n');
+                '[fsfind] building MEX support function (running compile_mex_listfiles())\n');
         end
 
         % make sure the supporting mex code is on the path
@@ -427,7 +417,7 @@ function is_compiled = try_to_compile(opts)
 
             if exist(mexroot,'dir') == 7
                 if ~opts.Silent
-                    fprintf('fsfind: adding to path: %s\n', mexroot);
+                    fprintf('[fsfind] adding to path: %s\n', mexroot);
                 end
 
                 addpath(genpath(mexroot));
@@ -444,9 +434,9 @@ function is_compiled = try_to_compile(opts)
 
         if ~opts.Silent
             if is_compiled
-                fprintf('fsfind: first-time setup complete!\n');
+                fprintf('[fsfind] first-time setup complete!\n');
             else
-                fprintf(['fsfind: failed to compile; details below:' ...
+                fprintf(['[fsfind] failed to compile; details below:' ...
                     '\n*****************************' ...
                     '\n%s' ...
                     '\n*****************************\n'], msg);
