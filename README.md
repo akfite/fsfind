@@ -49,7 +49,7 @@ Assume we have a directory structure of the following form:
         * ...
     * `other-junk`
 
-We want to find all `data.csv` files under the file system without wasting time searching the `dataset-x` folders.  The brute-force way that searches everything would be:
+We want to find all `data.csv` files under the file system without wasting time searching the `collect_x` folders.  The brute-force way that searches everything would be:
 
 ```matlab
 files = fsfind(root, 'data\.csv', Depth=inf)
