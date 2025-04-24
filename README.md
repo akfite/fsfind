@@ -14,9 +14,7 @@
 
 Just clone the repository and run `fsfind` in the command window!  If you are on a UNIX machine,
 it will compile the MEX code prior to running the search.  If you are on Windows, it will default
-to the non-MEX path (for some reason, the MEX version is slower on Windows).  If you ever wish
-to override this and use the MEX version, you can call `compile_mex_listfiles()` to build
-the supporting MEX function.  The correct code path will be selected inside `fsfind`.
+to the pre-built MEX binary included in the repo.  If you ever wish to override this and build the MEX code yourself, you can call `compile_mex_listfiles rebuild` to compile the supporting MEX function.  The best code path will be selected inside `fsfind` (or you can always disable MEX using the `Mex=false` parameter-value pair).
 
 ## Examples
 
