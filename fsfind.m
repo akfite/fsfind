@@ -261,11 +261,11 @@ function [all_filepaths, all_filenames, all_type, match_count] = search(...
             i_search = i_search + 1; continue
         end
         
-        file_depth = repmat(depth, numel(filenames), 1);
-
         if isempty(filenames)
             i_search = i_search + 1; continue
         end
+
+        file_depth = repmat(depth, numel(filenames), 1);
 
         % apply depthwise regex pattern to filter matches
         if numel(opts.DepthwisePattern) >= depth ...
