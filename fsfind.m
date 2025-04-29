@@ -1,5 +1,5 @@
-function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
-%FSFIND Fast recursive filesystem search with regular expression support.
+function [files, info] = fsfind(parent_dir, pattern, opts)
+%FSFIND Recursive filesystem search with regular expression support.
 %
 %   Usage:
 %
@@ -7,7 +7,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %       FILES = FSFIND(PARENT_DIR)
 %       FILES = FSFIND(PARENT_DIR, PATTERN)
 %       FILES = FSFIND(PARENT_DIR, PATTERN, options...)
-%       [FILES, FILENAMES, TYPES] = FSFIND(_____)
+%       [FILES, INFO] = FSFIND(_____)
 %
 %
 %   Inputs:
@@ -40,11 +40,6 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %             depth.  e.g. for applying a filter only to the second folder
 %             level, we may set this to {'', 'whatever'}.
 %
-%       'Mex' (=true) <1x1 matlab.lang.OnOffSwitchState>
-%           - build & use the MEX implementation if possible
-%           - does not guarantee that the MEX version will be used (such as
-%             if a C++ compiler doesn't exist or compilation fails for any reason)
-%
 %       'Silent' (=false) <1x1 matlab.lang.OnOffSwitchState>
 %           - suppresses all warnings & print statements
 %
@@ -74,24 +69,9 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %       FILES <Nx1 string>
 %           - the full filepaths that were matched
 %
-%       FILENAMES <Nx1 string>
-%           - the names of the files that were matched
-%           - equivalent to the following:
-%
-%               [~, FILENAMES, EXT] = fileparts(FILES)
-%               FILENAMES = strcat(FILENAMES, EXT);
-%
-%       TYPES <Nx1 fstype>
-%           - the type of each file returned
-%           - this is an enumeration based on std::filesystem::file_type when
-%             the MEX code is compiled; with no MEX, it will only return types
-%             "file" and "directory"
-%
-%   Notes:
-%
-%       This function can take advantage of C++ MEX via a support function,
-%       mex_listfiles.  It is compiled the first time FSFIND runs if a MEX
-%       compiler that supports C++17 is available.
+%       INFO <Nx5 table>
+%           - a table of metadata similar to what dir() returns (name, filesize, 
+%             isdir, date, folder)
 %
 %   Examples:
 %
@@ -102,7 +82,7 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 %       % get all .m files up to 2 levels deep from current directory
 %       files = fsfind(pwd, "\.m$", 'Depth', 2)
 %
-%   See also: regexp, compile_mex_listfiles
+%   See also: regexp
 
 %   Author:     Austin Fite
 %   Contact:    akfite@gmail.com
@@ -114,21 +94,10 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
         opts.CaseSensitive(1,1) matlab.lang.OnOffSwitchState = true
         opts.Depth(1,1) double {mustBePositive} = 1
         opts.DepthwisePattern(:,1) string = string.empty
-        opts.Mex(1,1) matlab.lang.OnOffSwitchState = true
         opts.Silent(1,1) matlab.lang.OnOffSwitchState = false
         opts.SkipFolderFcn function_handle = function_handle.empty
         opts.StopAtMatch(1,1) double {mustBePositive} = inf
         opts.Timeout(1,1) = inf % numeric or duration
-    end
-
-    % persistent state cleared when compile_mex_listfiles is called
-    persistent is_compiled;
-    if isempty(is_compiled)
-        is_compiled = exist(['mex_listfiles.' mexext],'file') > 0;
-
-        if ~is_compiled && opts.Mex && check_for_mex_compiler()
-            is_compiled = try_to_compile(opts);
-        end
     end
 
     % depth must at least match the size of the guided search
@@ -140,10 +109,15 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
 
     files = string.empty;
     filenames = string.empty;
-    types = fstype.empty;
+    isdir = logical.empty;
+    sizes = uint64.empty;
+    dates = string.empty;
+
     match_count = 0;
+
     clock = tic;
 
+    % start searching directories
     for i = 1:numel(parent_dir)
         if ~exist(parent_dir{i},'dir')
             if ~opts.Silent
@@ -152,23 +126,27 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
             continue
         end
 
-        [fp, fn, type, match_count] = search(parent_dir{i}, pattern, ...
+        [fp, fn, dirflag, sz, datemod, match_count] = search(parent_dir{i}, pattern, ...
             opts, ...
-            is_compiled && opts.Mex, ...
             match_count, ...
             clock);
 
-        % accumulate
+        % accumulate results
         files = vertcat(files, fp); %#ok<*AGROW>
         filenames = vertcat(filenames, fn);
-        types = vertcat(types, fstype(type));
+        isdir = vertcat(isdir, dirflag);
+        sizes = vertcat(sizes, sz);
+        dates = vertcat(dates, datemod);
 
         % if user requests we stop at N, never return more than N matches
         if numel(files) > opts.StopAtMatch
             N = floor(opts.StopAtMatch);
+
             files = files(1:N);
             filenames = filenames(1:N);
-            types = types(1:N);
+            isdir = isdir(1:N);
+            sizes = sizes(1:N);
+            dates = dates(1:N);
         end
         
         if numel(files) == opts.StopAtMatch || toc(clock) > opts.Timeout
@@ -176,10 +154,19 @@ function [files, filenames, types] = fsfind(parent_dir, pattern, opts)
         end
     end
 
+    if nargout > 1
+        info = table();
+        info.name = filenames;
+        info.bytes = double(sizes);
+        info.isdir = isdir;
+        info.date = datetime(dates);
+        info.folder = fileparts(files);
+    end
+
 end
 
-function [all_filepaths, all_filenames, all_type, match_count] = search(...
-    folder, pattern, opts, use_mex, match_count, clock)
+function [all_filepaths, all_filenames, all_dirflag, all_size, all_dates, match_count] = search(...
+    folder, pattern, opts, match_count, clock)
     %SEARCH Recursively search subfolders (but without recursion).
 
     separator = string(filesep);
@@ -192,11 +179,9 @@ function [all_filepaths, all_filenames, all_type, match_count] = search(...
     all_filenames = string.empty;
     all_filepaths = string.empty;
     all_depths = [];
-    all_type = uint8.empty;
-
-    % work with integers for speed (it makes a significant difference here)
-    dir_type = uint8(fstype.directory);
-    file_type = uint8(fstype.file);
+    all_dirflag = logical.empty;
+    all_size = uint64.empty;
+    all_dates = string.empty;
 
     % check up front to see if the user defined a pattern, or if we're matching anything
     match_anything = ...
@@ -216,7 +201,7 @@ function [all_filepaths, all_filenames, all_type, match_count] = search(...
     while i_search <= numel(all_filepaths)
         if i_search > 0
             folder = all_filepaths{i_search};
-            is_dir = all_type(i_search) == dir_type;
+            is_dir = all_dirflag(i_search);
             depth = all_depths(i_search) + 1;
         else
             is_dir = true;
@@ -245,15 +230,7 @@ function [all_filepaths, all_filenames, all_type, match_count] = search(...
         
         % get all of the contents of this folder (files, dirs, links, etc)
         try
-            if use_mex
-                [filepaths, filenames, type] = mex_listfiles(folder);
-            else
-                [filepaths, filenames, is_dir] = listfiles(folder);
-                
-                % map is_dir into fstype enum (assuming all non-directories are files)
-                type = repmat(file_type, size(is_dir));
-                type(is_dir) = dir_type;
-            end
+            [filepaths, filenames, dirflag, file_size, dates] = listfiles(folder);
         catch me
             if ~opts.Silent
                 fprintf('[fsfind] error: %s\n', folder);
@@ -281,7 +258,9 @@ function [all_filepaths, all_filenames, all_type, match_count] = search(...
             filenames = filenames(mask);
             filepaths = filepaths(mask);
             file_depth = file_depth(mask);
-            type = type(mask);
+            dirflag = dirflag(mask);
+            file_size = file_size(mask);
+            dates = dates(mask);
         end
 
         % if we have the option to return early, we must match as we search
@@ -311,7 +290,9 @@ function [all_filepaths, all_filenames, all_type, match_count] = search(...
         all_filepaths = vertcat(all_filepaths, filepaths);
         all_filenames = vertcat(all_filenames, filenames);
         all_depths = vertcat(all_depths, file_depth);
-        all_type = vertcat(all_type, type);
+        all_dirflag = vertcat(all_dirflag, dirflag);
+        all_size = vertcat(all_size, file_size);
+        all_dates = vertcat(all_dates, dates);
 
         if match_count >= opts.StopAtMatch
             break
@@ -334,7 +315,9 @@ function [all_filepaths, all_filenames, all_type, match_count] = search(...
 
         all_filepaths = all_filepaths(mask);
         all_filenames = all_filenames(mask);
-        all_type = all_type(mask);
+        all_dirflag = all_dirflag(mask);
+        all_size = all_size(mask);
+        all_dates = all_dates(mask);
     end
 
     % apply the pattern to filter results by filename
@@ -351,13 +334,15 @@ function [all_filepaths, all_filenames, all_type, match_count] = search(...
 
         all_filepaths = all_filepaths(mask);
         all_filenames = all_filenames(mask);
-        all_type = all_type(mask);
+        all_dirflag = all_dirflag(mask);
+        all_size = all_size(mask);
+        all_dates = all_dates(mask);
     end
 
 end
 
-function [filepaths, filenames, is_directory] = listfiles(folder)
-%LISTFILES Get the contents of the folder without using MEX.
+function [filepaths, filenames, is_directory, file_size, dates] = listfiles(folder)
+%LISTFILES Strip the results from dir() to vectors.
 
     files = dir(folder);
     assert(~isempty(files), 'Failed to open %s', folder);
@@ -373,86 +358,7 @@ function [filepaths, filenames, is_directory] = listfiles(folder)
     filenames = string({files.name}');
     filepaths = string(folder) + filesep + filenames;
     is_directory = vertcat(files.isdir);
-
-end
-
-function has_compiler = check_for_mex_compiler()
-%CHECK_FOR_MEX_COMPILER Check for the ability to compile on this computer.
-
-    has_compiler = false;
-    cfg = mex.getCompilerConfigurations('C++');
-
-    if isempty(cfg)
-        return
-    end
-
-    if contains(cfg.ShortName, 'mingw')
-        major_ver = regexp(cfg.Version, '^\d+');
-        if str2double(major_ver) < 9
-            return
-        end
-    else
-        % assume C++17 is available
-    end
-
-    has_compiler = true;
-
-end
-
-function is_compiled = try_to_compile(opts)
-%TRY_TO_COMPILE Attempt to compile the support function mex_listfiles.cpp
-
-    is_compiled = false;
-
-    mex_cfg = mex.getCompilerConfigurations('C++');
-
-    if isempty(mex_cfg)
-        if ~opts.Silent
-            warning('fsfind:no_mex_compiler', ...
-                ['No MEX compiler for C++ has been configured.  ' ...
-                'fsfind will have MEX codepaths disabled.  Run "mex -setup -v C++" to resolve.']);
-        end
-    else
-        if ~opts.Silent
-            fprintf(...
-                '[fsfind] building MEX support function (running compile_mex_listfiles())\n');
-        end
-
-        % make sure the supporting mex code is on the path
-        if exist('compile_mex_listfiles.m','file') ~= 2
-            fsroot = fileparts(mfilename('fullpath'));
-            mexroot = fullfile(fsroot, 'mex');
-
-            if exist(mexroot,'dir') == 7
-                if ~opts.Silent
-                    fprintf('[fsfind] adding to path: %s\n', mexroot);
-                end
-
-                addpath(genpath(mexroot));
-
-                if exist(['mex_listfiles.' mexext],'file') > 0
-                    is_compiled = true;
-                    return
-                end
-            end
-        end
-
-        % attempt to compile supporting MEX
-        [is_compiled, msg] = compile_mex_listfiles();
-
-        if ~opts.Silent
-            if is_compiled
-                fprintf('[fsfind] first-time setup complete!\n');
-            else
-                fprintf(['[fsfind] failed to compile; details below:' ...
-                    '\n*****************************' ...
-                    '\n%s' ...
-                    '\n*****************************\n'], msg);
-    
-                warning('fsfind:not_compiled', ...
-                    'fsfind is running without MEX support');
-            end
-        end
-    end
+    file_size = vertcat(files.bytes);
+    dates = string({files.date}');
 
 end
