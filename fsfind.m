@@ -156,11 +156,11 @@ function [files, info] = fsfind(parent_dir, pattern, opts)
 
     if nargout > 1
         info = table();
+        info.folder = fileparts(files);
         info.name = filenames;
         info.bytes = double(sizes);
         info.isdir = isdir;
         info.date = datetime(dates);
-        info.folder = fileparts(files);
     end
 
 end
