@@ -70,8 +70,8 @@ function [files, info] = fsfind(parent_dir, pattern, opts)
 %           - the full filepaths that were matched
 %
 %       INFO <Nx5 table>
-%           - a table of metadata similar to what dir() returns (name, filesize, 
-%             isdir, date, folder)
+%           - a table of metadata similar to what dir() returns (folder, name, 
+%             filesize, isdir, date)
 %
 %   Examples:
 %
