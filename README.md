@@ -8,13 +8,12 @@
 - a regex pattern can be provided for *each depth of the search*, which makes it possible
   to efficiently search very deep directory structures
 - the search depth is customizable
-- C++ MEX back-end allows it to be even faster than `dir` (but will fall back to dir() if user cannot compile)
+- metadata is *optionally* returned as a table
 
 ## Getting started
 
-Just clone the repository and run `fsfind` in the command window!  If you are on a UNIX machine,
-it will compile the MEX code prior to running the search.  If you are on Windows, it will default
-to the pre-built MEX binary included in the repo.  If you ever wish to override this and build the MEX code yourself, you can call `compile_mex_listfiles rebuild` to compile the supporting MEX function.  The best code path will be selected inside `fsfind` (or you can always disable MEX using the `Mex=false` parameter-value pair).
+Just clone the repository and run `fsfind` in the command window!  Check out the examples
+here and run `help fsfind` in the command window to see all available options.
 
 ## Examples
 
