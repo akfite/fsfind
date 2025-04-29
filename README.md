@@ -72,3 +72,40 @@ in this case, `3`.
 
 This concept is powerful for large filesystems.  You can design fast searches on deeply-nested directories with  thousands of files that would otherwise take ages using something like `dir(**/*)`.
 
+## Metadata
+
+MATLAB's `dir` also returns information about file sizes, date modified, etc.  You can access this information with the output from `fsfind` in `table` form:
+
+```matlab
+[~, info] = fsfind('C:\Program Files\VideoLAN', '', Depth=2)
+```
+
+```
+info = 
+
+                folder                          name               bytes       isdir            date        
+    _______________________________    ______________________    __________    _____    ____________________
+
+    "C:\Program Files\VideoLAN"        "VLC"                              0    true     24-Nov-2024 13:36:02
+    "C:\Program Files\VideoLAN\VLC"    "AUTHORS.txt"                  20213    false    08-Jun-2024 17:24:24
+    "C:\Program Files\VideoLAN\VLC"    "COPYING.txt"                  18431    false    08-Jun-2024 17:24:24
+    "C:\Program Files\VideoLAN\VLC"    "Documentation.url"               56    false    24-Nov-2024 13:36:02
+    "C:\Program Files\VideoLAN\VLC"    "NEWS.txt"                2.1969e+05    false    08-Jun-2024 17:24:24
+    "C:\Program Files\VideoLAN\VLC"    "New_Skins.url"                   65    false    24-Nov-2024 13:36:02
+    "C:\Program Files\VideoLAN\VLC"    "README.txt"                    2816    false    08-Jun-2024 17:24:24
+    "C:\Program Files\VideoLAN\VLC"    "THANKS.txt"                    5774    false    08-Jun-2024 17:24:24
+    "C:\Program Files\VideoLAN\VLC"    "VideoLAN Website.url"            51    false    24-Nov-2024 13:36:02
+    "C:\Program Files\VideoLAN\VLC"    "axvlc.dll"                1.351e+06    false    08-Jun-2024 18:30:24
+    "C:\Program Files\VideoLAN\VLC"    "hrtfs"                            0    true     24-Nov-2024 13:36:01
+    "C:\Program Files\VideoLAN\VLC"    "libvlc.dll"              1.9444e+05    false    08-Jun-2024 18:30:28
+    "C:\Program Files\VideoLAN\VLC"    "libvlccore.dll"          2.8108e+06    false    08-Jun-2024 18:30:26
+    "C:\Program Files\VideoLAN\VLC"    "locale"                           0    true     24-Nov-2024 13:36:01
+    "C:\Program Files\VideoLAN\VLC"    "lua"                              0    true     24-Nov-2024 13:36:01
+    "C:\Program Files\VideoLAN\VLC"    "npvlc.dll"               1.1544e+06    false    08-Jun-2024 18:30:28
+    "C:\Program Files\VideoLAN\VLC"    "plugins"                          0    true     24-Nov-2024 13:36:02
+    "C:\Program Files\VideoLAN\VLC"    "skins"                            0    true     24-Nov-2024 13:36:01
+    "C:\Program Files\VideoLAN\VLC"    "uninstall.exe"           2.6455e+05    false    24-Nov-2024 13:36:02
+    "C:\Program Files\VideoLAN\VLC"    "uninstall.log"                22193    false    24-Nov-2024 13:36:02
+    "C:\Program Files\VideoLAN\VLC"    "vlc-cache-gen.exe"       1.4734e+05    false    08-Jun-2024 18:36:46
+    "C:\Program Files\VideoLAN\VLC"    "vlc.exe"                 9.9265e+05    false    08-Jun-2024 18:30:24
+```
