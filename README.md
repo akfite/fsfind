@@ -74,7 +74,7 @@ This concept is powerful for large filesystems.  You can design fast searches on
 
 ## Metadata
 
-MATLAB's `dir` also returns information about file sizes, date modified, etc.  You can access this information with the output from `fsfind` in `table` form:
+MATLAB's `dir` also returns information about file sizes, date modified, etc.  You can access this information with the second output from `fsfind` (as a `table` instead of a struct array):
 
 ```matlab
 [~, info] = fsfind('C:\Program Files\VideoLAN', '', Depth=2)
