@@ -44,16 +44,14 @@ function [files, info] = fsfind(parent_dir, pattern, opts)
 %           - suppresses all warnings & print statements
 %
 %       'SkipFolderFcn' (=[]) <1x1 function_handle>
+%           - @(folder) <return true if folder should be skipped>
 %           - function to check whether a folder should be scanned PRIOR to
-%             actually listing the contents of the directory
-%           - for example, let's say you want to avoid checking any folders
-%             that were modified more than X years ago.  you can implement
-%             a function here that checks the date of each folder prior to
-%             listing the folder contents, and return true if the folder meets
-%             the threshold to skip.
-%           - avoid calling dir() on the contents of this folder in your function;
+%             actually listing the contents of the directory.  it provides
+%             a mechanism to skip folders by criteria other than just its name
+%           - for example, let's say you want to avoid scanning any .git repositories:
+%             this function could be @(folder) exist(fullfile(folder,'.git'),'dir') > 0
+%           - try to avoid calling dir() on the contents of this folder in your function;
 %             the point of this is to conditionally skip the call to dir() for speed
-%           - signature: @(folder) <return true if folder should be skipped>
 %
 %       'StopAtMatch' (=inf) <1x1 numeric>
 %           - stop searching after N matches have been found
